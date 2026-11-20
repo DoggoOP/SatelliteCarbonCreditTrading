@@ -128,6 +128,21 @@ GEDI has a grass–shrub–woodland stratum, but a 25 m footprint on 30 percent 
 | Flux pass | null, or a rate whose absolute value is &lt; 0.2 Mg ha⁻¹ yr⁻¹ and is not an IPCC forest row |
 | Flux fail | any IPCC forest growth row |
 
+## Unit check against the current analyzer
+
+As of `main` commit `5a40de2`, the API reads Planetary Computer HGB `aboveground` and multiplies by 0.47 and 44/12, labeling the HGB mean as dry biomass. The collection is documented as **2010 biomass carbon density** at 300 m (Spawn et al. 2020, *Scientific Data* 7: 112; Planetary Computer catalog entry for `hgb`). This file did not open the COG.
+
+Score the run in two columns until that unit is confirmed:
+
+| If HGB is dry biomass, as the code assumes | If HGB is carbon density, as the catalog wording says |
+| --- | --- |
+| Compare the displayed AGB to the `agb_mg_ha` fields in this file. | The displayed “AGB” should be compared to `derived_using_default_cf.carbon_t_ha`, and the displayed tCO2e/ha is then too small by a factor of 0.47. |
+| Manaus screen about 150–500 Mg ha⁻¹ passes. | A Manaus screen near 150 Mg ha⁻¹ labeled as biomass **fails** this file even though 150 is a plausible carbon density. Fix the label and drop the extra 0.47. Do not edit the reference downward to match the bug. |
+
+Chloris annual change is a separate product. Passing the stock test does not mean the flux passed Hubbard Brook or the Mojave null test.
+
+The three polygons in `shared/presets.ts` (Humboldt box near 40.33° N, 124.04° W; a box east of Manaus near 2.69° S, 59.89° W; a Sierra Nevada box) are convenient demo draws. They are not the literature plot corners. Kruger, Hubbard Brook, and the Mojave are not presets yet. Add them from `reference_values.json` rather than inventing new biomass targets.
+
 ## How to score a build
 
 Run the five polygons in one session and record, for each, the source tag (`gedi_l4a`, `gedi_l4b`, `ndvi_fallback_ilam_2022`, or `ipcc_prior`), the shot count, AGB, carbon, tCO2e, sequestration, and confidence.
@@ -155,4 +170,5 @@ Do not tune the model until all five pass by overwriting outputs with these cons
 - Sillett et al. (2024). https://doi.org/10.1016/j.foreco.2024.121879
 - Suwa, R., Sakai, T., dos Santos, J., da Silva, R. P., Kajimoto, T., Ishizuka, M., and Higuchi, N. (2013). *JARQ* 47(1): 109–114. https://doi.org/10.6090/jarq.47.109
 - Terra-firme topographic biomass, ten-year remeasurement (2016). *JARQ* 50(4). https://www.jstage.jst.go.jp/article/jarq/50/4/50_379/_article/-char/en — author list was not re-copied in this pass; the abstract numbers were.
+- Spawn, S. A., Sullivan, C. C., Lark, T. J., and Gibbs, H. K. (2020). Harmonized global maps of above and belowground biomass carbon density in the year 2010. *Scientific Data* 7: 112. https://doi.org/10.1038/s41597-020-0444-4 — cited for the HGB unit question. The GeoTIFF was not opened in this pass.
 - Van Doorn, N. S., Battles, J. J., Fahey, T. J., Siccama, T. G., and Schwarz, P. A. (2011). https://doi.org/10.1139/x11-063

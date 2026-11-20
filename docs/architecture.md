@@ -1,6 +1,6 @@
 # CarbonSight architecture
 
-This is the system the hackathon build should implement. It describes the design, not a claim that every box already exists on `kevin`. Application code lives on that branch. This file stays under `docs/` so the two efforts do not collide.
+This is the system the analysis should implement, plus a description of what `main` actually calls as of commit `5a40de2` (`added carbonsight app baseline`). There is no remote branch named `kevin` at the time of writing. Application code is not modified by this documentation set.
 
 ## What the system is
 
@@ -42,6 +42,22 @@ Sentinel-2 L2A (NDVI)              GEDI L4A footprints, L4B 1 km grid
 5. **Estimate.** If the quality-filtered shot count meets the confidence rules, the reported AGB is the footprint mean. Otherwise the API may compute the Ilam (2022) NDVI equation and must tag it `ndvi_fallback_ilam_2022`. IPCC Table 4.7 is stored as `ipcc_prior_agb` and is never copied into `agb_mg_ha`. Carbon, stock, optional roots, and the Tier-1 rate follow `methodology.md`. Desert, shrub, and grassland leave `sequestration` null.
 
 6. **Score and list.** Write the component scores, the caps, the product versions, and the geometry. A marketplace row can be created only when the label is `screen_only` or `list_with_provenance`. The row’s public text includes the non-issuance sentence below. `do_not_list` results stay in the user’s analysis history and do not appear as supply.
+
+## What the code on main does today
+
+`server/engine/analyze.ts` does not query GEDI. A live analysis:
+
+1. Reads **Harmonized Global Biomass (HGB)** on Planetary Computer, collection `hgb`, assets `aboveground` and `aboveground_uncertainty`.
+2. Treats that mean as dry AGB in Mg ha⁻¹ and converts with `AGB × 0.47 × 44/12` (`server/engine/carbon.ts`).
+3. Reads **Chloris** collection `chloris-biomass`, asset `biomass_change`, and scales the pixel total down to the polygon. The code comment states the pixel is about 4.6 km on a side and that the asset is tonnes of CO2e, not a per-hectare rate. This documentation pass did not re-derive that unit from a Chloris ATBD.
+4. Reads **MODIS** `modis-13Q1-061` NDVI and EVI for the vegetation panel. Sentinel-2 L2A is searched and used as a map tile, not as the biomass regression in `methodology.md`.
+5. Applies a **20 percent** non-permanence buffer (`NON_PERMANENCE_BUFFER = 0.2` in `shared/contract.ts`) and will only treat a positive annual number as issuable volume. The shipped disclaimer says the result is illustrative and not a Verra, Gold Standard, or ACR issuance. The 20 percent is a product constant, not an IPCC default.
+
+**HGB unit risk.** The Planetary Computer catalog describes HGB as “Global maps of aboveground and belowground biomass **carbon** density for the year 2010 at 300 m resolution.” The example notebook for the collection uses the same words: biomass carbon density. That is the Spawn et al. (2020) harmonized product, whose title is carbon density, not dry woody mass (*Scientific Data* 7: 112, https://doi.org/10.1038/s41597-020-0444-4). The COG scale factor was not opened for this note. If the asset is already tonnes of carbon per hectare, multiplying by 0.47 applies the carbon fraction twice, and the field labeled aboveground biomass is actually a carbon density. Against the Manaus reference (317 Mg dry matter ha⁻¹, about 149 t C ha⁻¹), a mislabeled run would show a “biomass” near 150 and a stock near 260 t CO2e ha⁻¹ instead of about 550. `validation.md` is written against dry biomass on purpose, so this mistake fails the reference check instead of being absorbed into it. Confirm the GeoTIFF units before changing the multiplier.
+
+Chloris is a reasonable flux source where IPCC Table 4.9 is only a default. It does not remove the need to refuse a forest flux on the Mojave control, and a 4.6 km pixel scaled onto a 5–20 ha polygon is a sample of the pixel, not a measurement of the polygon. The code already warns when the polygon is smaller than one Chloris pixel. Confidence should stay capped in that case. The minimum polygon in the current API is 5 ha and the maximum is 20,000 ha.
+
+Preset boxes in `shared/presets.ts` are demo geometries, not the plot corners in `reference_values.json`. The Amazon preset sits near 2.69° S, 59.89° W, east of Manaus. The Suwa et al. transect is in ZF-2, northwest of the city. Both can be terra firme. Do not expect the preset to return 316.6 Mg ha⁻¹ exactly.
 
 ## Suggested technical choices
 

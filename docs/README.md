@@ -15,3 +15,5 @@ Scientific method, validation ranges, system design, and pitch notes for the Ber
 CarbonSight estimates **aboveground biomass stock**. It does not issue a carbon credit. A hectare of old forest can hold hundreds of tonnes of CO2-equivalent carbon and still be sequestering almost nothing this year. The marketplace copy has to say that.
 
 Figures were checked against the cited IPCC PDFs, ORNL DAAC product guides, and the papers named in each file, in November 2026. Where a PDF text extraction was ambiguous, or a paper prints a coordinate that cannot be right, the text says so. Do not tighten those ranges to look more precise.
+
+The app on `main` (`5a40de2`) already multiplies a biomass-like layer by 0.47 and 44/12. That layer is Planetary Computer HGB, whose catalog text calls it carbon density. `validation.md` explains how that one ambiguity changes the pass test. Resolve it from the GeoTIFF, not by editing these reference numbers.

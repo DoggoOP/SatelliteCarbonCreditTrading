@@ -30,6 +30,8 @@ The optical fallback is a published Sentinel-2 regression from one community for
 
 If the network cannot reach Earthdata on stage, use the five precomputed validation polygons. Say they are cached. Do not swap in hand-typed biomass.
 
+The build on `main` as of `5a40de2` still reads Harmonized Global Biomass for 2010 and a Chloris change layer, not GEDI footprints. For that build, say “2010 HGB stock, Chloris annual change” out loud. If the Manaus biomass number comes back near 150 instead of near 300, stop and check the HGB unit note in `validation.md` before calling it a low-biomass forest.
+
 ## Technical depth
 
 The hard part is not the map. It is refusing to treat a stock as a flux, and refusing to treat a vegetation index as biomass.
