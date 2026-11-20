@@ -184,7 +184,7 @@ async function run(geometry) {
   const ipcc = ipccGrowth(lat, lon, treeFraction ?? 0, cover.shrubFraction ?? 0);
   let seqTdmHa = ipcc.rate;
   let seqTco2eHa = ipcc.rate * CARBON_FRACTION * CO2_FACTOR;
-  let sequestrationMethod = `IPCC 2006 Vol. 4 Table 4.9 Tier-1 net annual increment, ${ipcc.label}. Existing tree cover is treated as >20 years. This is a default growth rate, not a measured flux.`;
+  let sequestrationMethod = `Tier-1 default growth (${ipcc.label}). Existing tree cover is treated as primary or older than 20 years. This is not a measured flux.`;
 
   if (chlorisTco2eHa != null && changeSamples.length >= 2 && Math.abs(chlorisTco2eHa) >= 0.75) {
     seqTco2eHa = chlorisTco2eHa;
@@ -612,13 +612,18 @@ function ipccGrowth(lat, lon, treeFraction, shrubFraction) {
   const region = ipccRegion(lon);
   const abs = Math.abs(lat);
   if (abs <= 12) {
+    if (region === "americas") {
+      return {
+        rate: 1,
+        label: "IPCC 2019 Table 4.9 tropical rainforest, North and South America, primary, 1.0 t dry matter/ha/yr",
+      };
+    }
     const rates = {
       africa: 3.1,
       "asia continental": 2.2,
       "asia insular": 3.4,
-      americas: 3.1,
     };
-    return { rate: rates[region], label: `tropical rainforest, ${region}, >20 years` };
+    return { rate: rates[region], label: `IPCC 2006 Table 4.9 tropical rainforest, ${region}, >20 years` };
   }
   if (abs <= 25) {
     const rates = { africa: 1.3, "asia continental": 2, "asia insular": 3, americas: 2 };

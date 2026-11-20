@@ -9,12 +9,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { AnalysisResult } from "../lib/types";
+import { createListingFromAnalysis } from "../features/marketplace";
+import { MARKET_ANALYSIS_KEY } from "../integrations/MarketplaceGate";
+import { toMarketAnalysis } from "../integrations/toMarketAnalysis";
 import { fmt, pct } from "../lib/format";
-import { createListingFromAnalysis, marketplaceReady } from "../integrations/marketplaceAdapter";
+import type { AnalysisResult, Polygon } from "../lib/types";
 
 type Props = {
   result: AnalysisResult | null;
+  polygon: Polygon | null;
   error: string | null;
   loading: boolean;
   areaHa: number | null;
@@ -26,19 +29,27 @@ const levelTone: Record<string, string> = {
   Low: "bg-ink/80 text-white",
 };
 
-export function ResultsPanel({ result, error, loading, areaHa }: Props) {
+export function ResultsPanel({ result, polygon, error, loading, areaHa }: Props) {
   const navigate = useNavigate();
-  const [listed, setListed] = useState<string | null>(null);
+  const [listNote, setListNote] = useState<string | null>(null);
 
   function listCredits() {
-    if (!result) return;
-    sessionStorage.setItem("carbonsight:last-analysis", JSON.stringify(result));
-    const listing = createListingFromAnalysis(result);
-    if (listing) {
-      setListed(listing.id);
+    if (!result || !polygon) return;
+    const analysis = toMarketAnalysis(result, polygon);
+    try {
+      createListingFromAnalysis(analysis, {
+        pricePerTCO2e: 40,
+        vintage: new Date().getFullYear(),
+        sellerName: "CarbonSight desk",
+      });
+    } catch (caught) {
+      setListNote(caught instanceof Error ? caught.message : "This result cannot be listed.");
       return;
     }
-    navigate("/marketplace");
+    sessionStorage.setItem("carbonsight:last-analysis", JSON.stringify(result));
+    sessionStorage.setItem(MARKET_ANALYSIS_KEY, JSON.stringify(analysis));
+    setListNote(null);
+    navigate("/marketplace/list", { state: { analysis } });
   }
 
   return (
@@ -183,11 +194,12 @@ export function ResultsPanel({ result, error, loading, areaHa }: Props) {
             <button
               type="button"
               onClick={listCredits}
-              className="rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-pine"
+              disabled={!polygon}
+              className="rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-pine disabled:cursor-not-allowed disabled:bg-ink/30"
             >
-              {marketplaceReady ? "List credits" : "List credits"}
+              List credits
             </button>
-            {listed && <p className="text-sm text-moss">Listing {listed} created.</p>}
+            {listNote && <p className="text-sm text-red-800">{listNote}</p>}
             <p className="pb-4 text-xs leading-relaxed text-ink/45">
               Screening estimate for discussion. Not a verified credit and not an offer to sell one.
             </p>

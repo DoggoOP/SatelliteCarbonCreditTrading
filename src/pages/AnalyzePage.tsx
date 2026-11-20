@@ -196,7 +196,7 @@ export function AnalyzePage() {
         </div>
       </div>
 
-      <ResultsPanel result={result} error={error} loading={loading} areaHa={areaHa} />
+      <ResultsPanel result={result} polygon={aoi} error={error} loading={loading} areaHa={areaHa} />
     </div>
   );
 }

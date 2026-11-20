@@ -28,7 +28,7 @@ npm run analyze -- humboldt
 2. Draw a polygon (click corners, then the first point) or drag a rectangle. The chip shows area in hectares. Areas under 1 ha or over 15,000 ha are rejected with a clear message.
 3. Click **Analyze with Satellites**.
 4. The panel reports area, NDVI, an NDVI series, biomass density, carbon stock (tC and tCO₂e), sequestration, clear-pixel and cloud fraction, biomass-map coverage, GEDI coverage, a High/Medium/Low confidence score with a numeric range, and the method. Toggle the NDVI overlay after a successful run.
-5. **List credits** stores the result and opens the marketplace route. That desk is a slot until the marketplace module is mounted.
+5. **List credits** checks the result with `createListingFromAnalysis()` and opens `/marketplace/list` with the polygon, stock, sequestration, and confidence filled in. Browse and portfolio live under `/marketplace`.
 
 ## Optional data-engine
 
