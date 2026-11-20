@@ -1,6 +1,26 @@
 import { Link } from "react-router-dom";
 import { PLATFORM_FEE_FRACTION } from "../../../shared/contract";
 
+const successFee = Math.round(PLATFORM_FEE_FRACTION * 100);
+
+const steps = [
+  {
+    n: "01",
+    title: "Draw",
+    body: "A boundary, a preset forest, or GeoJSON. Area is measured on the globe, not a flat map.",
+  },
+  {
+    n: "02",
+    title: "Read satellites",
+    body: "MODIS greenness, Harmonized Global Biomass, Chloris change, and a recent Sentinel-2 scene.",
+  },
+  {
+    n: "03",
+    title: "List buffered removals",
+    body: "Only the annual removal after the non-permanence buffer can be listed. Standing stock stays inventory.",
+  },
+];
+
 const tiers = [
   { name: "Scout", price: 49, who: "Landowners checking one property" },
   { name: "Project", price: 149, who: "Developers running a portfolio of stands" },
@@ -9,79 +29,75 @@ const tiers = [
 
 export function LandingView() {
   return (
-    <div className="space-y-14">
-      <section className="grid items-end gap-8 pt-6 md:grid-cols-[1.4fr_0.8fr]">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-canopy">For project developers and credit buyers</p>
-          <h1 className="mt-3 max-w-xl text-4xl font-semibold leading-tight tracking-tight md:text-6xl">
+    <div className="mx-auto flex min-w-0 max-w-5xl flex-col gap-12">
+      <section className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.72fr)]">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">For developers and credit buyers</p>
+          <h1 className="mt-3 max-w-xl font-display text-[2.35rem] font-medium leading-[1.05] tracking-tight text-ink sm:text-5xl">
             Satellite carbon, checked before anyone gets paid.
           </h1>
-          <p className="mt-4 max-w-xl text-lg text-muted">
+          <p className="mt-4 max-w-xl text-base leading-7 text-muted">
             Draw a forest. CarbonSight reads live public satellite data and returns standing carbon, a removal
-            forecast, and a confidence score. Listing uses the forecast, never the standing stock.
+            forecast, and a confidence score. The listing is the buffered annual removal, never the standing stock.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               to="/analyze?preset=redwoods"
-              className="inline-flex items-center justify-center rounded-full bg-canopy px-4 py-2 text-sm font-medium text-white"
+              className="inline-flex max-w-full items-center justify-center rounded-lg bg-copper px-4 py-2.5 text-sm font-medium text-paper"
             >
               Analyze the redwoods
             </Link>
             <Link
               to="/market"
-              className="inline-flex items-center justify-center rounded-full border border-line px-4 py-2 text-sm font-medium"
+              className="inline-flex max-w-full items-center justify-center rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-medium text-ink"
             >
               See the marketplace
             </Link>
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-3 rounded-3xl border border-line bg-paper p-5 shadow-card">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-muted">Field inventory</dt>
-            <dd className="mt-1 text-2xl font-semibold">6–18 mo</dd>
+
+        <dl className="min-w-0 rounded-lg border border-line bg-paper">
+          <div className="border-b border-line px-5 py-4">
+            <dt className="text-[11px] uppercase tracking-[0.16em] text-muted">Field inventory</dt>
+            <dd className="mt-2 font-display text-[1.55rem] leading-tight text-ink">
+              6–18 months and <span className="whitespace-nowrap">$20–100k</span>
+            </dd>
           </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-muted">Typical cost</dt>
-            <dd className="mt-1 text-2xl font-semibold">$20–100k</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-muted">CarbonSight</dt>
-            <dd className="mt-1 text-2xl font-semibold">Minutes</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-muted">Success fee</dt>
-            <dd className="mt-1 text-2xl font-semibold">{Math.round(PLATFORM_FEE_FRACTION * 100)}%</dd>
+          <div className="px-5 py-4">
+            <dt className="text-[11px] uppercase tracking-[0.16em] text-copper">CarbonSight</dt>
+            <dd className="mt-2 font-display text-[1.65rem] leading-tight text-ink">Minutes</dd>
+            <dd className="mt-3 text-sm leading-6 text-muted">{successFee}% success fee, only when a tonne trades.</dd>
           </div>
         </dl>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {[
-          ["01 Draw", "A boundary, a preset forest, or a GeoJSON upload. Area is measured on the globe, not a flat map."],
-          ["02 Read", "MODIS greenness, Harmonized Global Biomass, Chloris change, and a recent Sentinel-2 scene."],
-          ["03 List", "Only buffered annual removals can be listed. Buyers see the method, the gaps, and the fee."],
-        ].map(([title, copy]) => (
-          <article key={title} className="rounded-3xl border border-line bg-paper p-5">
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">{copy}</p>
+      <section className="grid min-w-0 gap-3 md:grid-cols-3">
+        {steps.map((step) => (
+          <article key={step.n} className="min-w-0 rounded-lg border border-line bg-paper px-5 py-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted">{step.n}</p>
+            <h2 className="mt-2 font-display text-xl font-medium text-ink">{step.title}</h2>
+            <p className="mt-2 break-words text-sm leading-6 text-muted">{step.body}</p>
           </article>
         ))}
       </section>
 
-      <section>
-        <h2 className="text-2xl font-semibold tracking-tight">Two ways this becomes a business</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+      <section className="min-w-0">
+        <h2 className="font-display text-2xl font-medium tracking-tight text-ink">Access, then a fee on the trade</h2>
+        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
           {tiers.map((tier) => (
-            <article key={tier.name} className="rounded-3xl border border-line bg-paper p-5">
+            <article key={tier.name} className="min-w-0 rounded-lg border border-line bg-paper px-5 py-4">
               <p className="text-sm text-muted">{tier.name}</p>
-              <p className="mt-2 text-3xl font-semibold">${tier.price}<span className="text-base font-normal text-muted">/mo</span></p>
-              <p className="mt-2 text-sm text-muted">{tier.who}</p>
+              <p className="mt-2 font-display text-3xl font-medium text-ink">
+                ${tier.price}
+                <span className="ml-1 font-sans text-sm font-normal text-muted">a month</span>
+              </p>
+              <p className="mt-2 break-words text-sm leading-6 text-muted">{tier.who}</p>
             </article>
           ))}
         </div>
-        <p className="mt-4 max-w-3xl text-sm text-muted">
-          Subscriptions are the access layer. The {Math.round(PLATFORM_FEE_FRACTION * 100)}% fee applies only when a
-          tonne actually trades. Prices on the marketplace are assumptions for the voluntary market, labeled as such.
+        <p className="mt-4 max-w-3xl text-sm leading-6 text-muted">
+          Subscriptions are the access layer. The {successFee}% fee applies only when a tonne actually trades. Marketplace
+          prices are assumptions for the voluntary market, labeled as such.
         </p>
       </section>
     </div>
