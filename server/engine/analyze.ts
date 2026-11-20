@@ -82,25 +82,44 @@ export async function analyzeArea(request: AnalysisRequest): Promise<AnalysisRes
   const warnings: string[] = [];
   const sources: DataSourceCitation[] = [];
 
-  const modisPromise = (async () => {
+  const modisPromise = (async (): Promise<TimeSeriesPoint[]> => {
     const features = await searchStac({
       collections: ["modis-13Q1-061"],
       intersects: geometry,
       datetime: `${isoDaysAgo(540)}/..`,
       limit: 8,
     });
-    const item = newest(features);
-    if (!item) return { feature: null, stats: null };
-    const stats = await itemStatistics(
-      "modis-13Q1-061",
-      item.id,
-      ["250m_16_days_NDVI", "250m_16_days_EVI"],
-      geometry,
+    const sorted = [...features].sort((a, b) => featureTime(b).localeCompare(featureTime(a)));
+    const scenes = await Promise.all(
+      sorted.slice(0, 4).map(async (item) => {
+        try {
+          const stats = await itemStatistics(
+            "modis-13Q1-061",
+            item.id,
+            ["250m_16_days_NDVI", "250m_16_days_EVI"],
+            geometry,
+          );
+          const ndviStat = stat(stats, "250m_16_days_NDVI");
+          const eviStat = stat(stats, "250m_16_days_EVI");
+          const valid = ndviStat?.valid_percent ?? 0;
+          if (!ndviStat || valid < 30) return null;
+          const point: TimeSeriesPoint = {
+            date: featureTime(item).slice(0, 10),
+            ndvi: modisViToUnit(ndviStat.mean),
+            evi: eviStat ? modisViToUnit(eviStat.mean) : null,
+            cloudFraction: null,
+            validPercent: valid,
+          };
+          return point;
+        } catch {
+          return null;
+        }
+      }),
     );
-    return { feature: item, stats };
+    return scenes.filter((scene): scene is TimeSeriesPoint => scene != null);
   })().catch((error: unknown) => {
     warnings.push(`MODIS vegetation index failed: ${error instanceof Error ? error.message : "unknown error"}`);
-    return { feature: null, stats: null };
+    return [] as TimeSeriesPoint[];
   });
 
   const hgbPromise = (async () => {
@@ -146,69 +165,29 @@ export async function analyzeArea(request: AnalysisRequest): Promise<AnalysisRes
     return null;
   });
 
-  const [modis, hgbStats, chloris, sentinel] = await Promise.all([
+  const [modisScenes, hgbStats, chloris, sentinel] = await Promise.all([
     modisPromise,
     hgbPromise,
     chlorisPromise,
     sentinelPromise,
   ]);
 
-  let ndviMean: number | null = null;
-  let eviMean: number | null = null;
-  const timeseries: TimeSeriesPoint[] = [];
-
-  // === MODIS TIMESERIES (Agent 2 requirement - 4 parallel scenes) ===
-  const modisItems = await searchStac({
-    collections: ["modis-13Q1-061"],
-    datetime: isoDaysAgo(540),
-    limit: 8,
-  });
-
-  const sorted = [...modisItems].sort((a, b) => featureTime(b).localeCompare(featureTime(a)));
-  const firstFour = sorted.slice(0, 4);
-
-  const statsPromises = firstFour.map(async (item) => {
-    try {
-      const stats = await itemStatistics("modis-13Q1-061", item.id, {
-        assets: ["250m_16_days_NDVI", "250m_16_days_EVI"],
-      });
-      const ndviStat = stat(stats, "250m_16_days_NDVI");
-      const eviStat = stat(stats, "250m_16_days_EVI");
-      const valid = ndviStat?.valid_percent ?? 0;
-      if (valid < 30) throw new Error("low validity");
-
-      return {
-        date: featureTime(item).slice(0, 10),
-        ndvi: ndviStat ? modisViToUnit(ndviStat.mean) : null,
-        evi: eviStat ? modisViToUnit(eviStat.mean) : null,
-        cloudFraction: null,
-        validPercent: valid,
-      } as TimeSeriesPoint;
-    } catch {
-      return null;
-    }
-  });
-
-  const results = await Promise.all(statsPromises);
-  const validScenes = results.filter((r): r is TimeSeriesPoint => r !== null);
-
-  timeseries.push(...validScenes);
-  ndviMean = validScenes[0]?.ndvi ?? null;
-  eviMean = validScenes[0]?.evi ?? null;
+  const timeseries = [...modisScenes].sort((a, b) => a.date.localeCompare(b.date));
+  const latest = modisScenes[0] ?? null;
+  const ndviMean = latest?.ndvi ?? null;
+  const eviMean = latest?.evi ?? null;
 
   sources.push(
     citation(
       "modis-13Q1-061",
       "MODIS vegetation indices (13Q1)",
       "https://planetarycomputer.microsoft.com/dataset/modis-13Q1-061",
-      validScenes.length > 0 ? "ok" : "unavailable",
-      `Used ${validScenes.length} live scenes (first 4 searched in parallel).`,
+      timeseries.length > 0 ? "ok" : "unavailable",
+      timeseries.length > 0
+        ? `Used ${timeseries.length} live scenes.`
+        : "No usable MODIS composite for this polygon.",
     ),
   );
-  // === END MODIS UPDATE ===
-
-  // Original single-scene MODIS code has been replaced by the multi-scene version above.
-  // The vegetation chart will now show several live MODIS dates.
 
   const agb = hgbStats ? stat(hgbStats, "aboveground") : null;
   const agbUncertainty = hgbStats ? stat(hgbStats, "aboveground_uncertainty") : null;
@@ -352,8 +331,10 @@ export async function analyzeArea(request: AnalysisRequest): Promise<AnalysisRes
     score = Math.min(score, 68);
     drivers.push("Polygon is finer than the sequestration grid.");
   }
-  if (timeseries.length < 4) {
+  if (timeseries.length < 2) {
     drivers.push("Vegetation time series is still a single composite. Trend is not yet estimated.");
+  } else if (timeseries.length < 4) {
+    drivers.push("Vegetation time series has fewer than four dates. Trend is not yet estimated.");
   }
   score = Math.max(0, Math.min(100, score));
   const confidenceBand = bandFor(score, aboveGroundBiomassMgHa != null);
