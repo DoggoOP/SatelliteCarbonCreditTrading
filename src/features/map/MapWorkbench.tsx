@@ -11,16 +11,30 @@ interface Props {
   name: string;
   geometry: Polygon;
   busy: boolean;
+  sentinelTileTemplate?: string | null;
   onChange: (next: { name: string; geometry: Polygon }) => void;
   onAnalyze: () => void;
 }
 
-export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Props) {
+type LngLat = [number, number];
+
+const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null, onChange, onAnalyze }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const geometryRef = useRef(geometry);
+  const drawingRef = useRef(false);
+  const draftRef = useRef<LngLat[]>([]);
+  const satelliteRef = useRef<{ template: string | null; show: boolean }>({ template: null, show: true });
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [draft, setDraft] = useState<LngLat[]>([]);
+  const [showSatellite, setShowSatellite] = useState(true);
   geometryRef.current = geometry;
+  drawingRef.current = drawing;
+  draftRef.current = draft;
+  satelliteRef.current = { template: sentinelTileTemplate, show: showSatellite };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -38,6 +52,7 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
         type: "geojson",
         data: { type: "Feature", properties: {}, geometry: geometryRef.current },
       });
+      map.addSource("draft", { type: "geojson", data: EMPTY });
       map.addLayer({
         id: "aoi-fill",
         type: "fill",
@@ -50,7 +65,36 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
         source: "aoi",
         paint: { "line-color": "#0f5a36", "line-width": 2 },
       });
+      map.addLayer({
+        id: "draft-fill",
+        type: "fill",
+        source: "draft",
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: { "fill-color": "#b8612e", "fill-opacity": 0.25 },
+      });
+      map.addLayer({
+        id: "draft-line",
+        type: "line",
+        source: "draft",
+        filter: ["any", ["==", ["geometry-type"], "Polygon"], ["==", ["geometry-type"], "LineString"]],
+        paint: { "line-color": "#b8612e", "line-width": 2 },
+      });
+      map.addLayer({
+        id: "draft-points",
+        type: "circle",
+        source: "draft",
+        filter: ["==", ["geometry-type"], "MultiPoint"],
+        paint: { "circle-radius": 5, "circle-color": "#b8612e", "circle-stroke-width": 2, "circle-stroke-color": "#fffcf7" },
+      });
       fit(map, geometryRef.current);
+      applySatellite(map, satelliteRef.current.template, satelliteRef.current.show);
+    });
+    map.on("click", (event) => {
+      if (!drawingRef.current) return;
+      const next: LngLat[] = [...draftRef.current, [event.lngLat.lng, event.lngLat.lat]];
+      draftRef.current = next;
+      setDraft(next);
+      paintDraft(map, next);
     });
     mapRef.current = map;
     return () => {
@@ -61,15 +105,63 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
-    const source = map.getSource("aoi") as maplibregl.GeoJSONSource | undefined;
-    source?.setData({ type: "Feature", properties: {}, geometry });
-    fit(map, geometry);
+    if (!map?.isStyleLoaded() || !map.getSource("aoi")) return;
+    const source = map.getSource("aoi") as maplibregl.GeoJSONSource;
+    source.setData({ type: "Feature", properties: {}, geometry });
+    if (!drawingRef.current) fit(map, geometry);
   }, [geometry]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded() || !map.getSource("draft")) return;
+    paintDraft(map, draft);
+  }, [draft]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+    applySatellite(map, sentinelTileTemplate, showSatellite);
+  }, [sentinelTileTemplate, showSatellite]);
+
+  function stopDraw() {
+    drawingRef.current = false;
+    draftRef.current = [];
+    setDrawing(false);
+    setDraft([]);
+    const map = mapRef.current;
+    if (map) {
+      map.doubleClickZoom.enable();
+      map.getCanvas().style.cursor = "";
+      if (map.getSource("draft")) paintDraft(map, []);
+    }
+  }
+
+  function startDraw() {
+    const map = mapRef.current;
+    drawingRef.current = true;
+    draftRef.current = [];
+    setDrawing(true);
+    setDraft([]);
+    setUploadError(null);
+    if (map) {
+      map.doubleClickZoom.disable();
+      map.getCanvas().style.cursor = "crosshair";
+      if (map.getSource("draft")) paintDraft(map, []);
+    }
+  }
+
   function choosePreset(preset: ForestPreset) {
+    stopDraw();
     setUploadError(null);
     onChange({ name: preset.name, geometry: preset.geometry });
+  }
+
+  function finishShape() {
+    if (draft.length < 3) return;
+    const ring = [...draft, draft[0]];
+    const polygon: Polygon = { type: "Polygon", coordinates: [ring] };
+    stopDraw();
+    onChange({ name: "Drawn stand", geometry: polygon });
   }
 
   function onUpload(text: string) {
@@ -79,6 +171,7 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
         setUploadError("Paste a Polygon, a Feature, or a FeatureCollection.");
         return;
       }
+      stopDraw();
       setUploadError(null);
       onChange({ name: "Uploaded boundary", geometry: polygon });
     } catch {
@@ -86,7 +179,13 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
     }
   }
 
-  const hectares = areaHectares(geometry);
+  const draftPolygon: Polygon | null =
+    draft.length >= 3 ? { type: "Polygon", coordinates: [[...draft, draft[0]]] } : null;
+  const hectaresLabel = draftPolygon
+    ? `${areaHectares(draftPolygon).toFixed(0)} ha`
+    : drawing
+      ? `${draft.length} corners`
+      : `${areaHectares(geometry).toFixed(0)} ha`;
 
   return (
     <section className="overflow-hidden rounded-3xl border border-line bg-paper shadow-card">
@@ -99,20 +198,54 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
               type="button"
               onClick={() => choosePreset(preset)}
               className={`rounded-full border px-3 py-1 text-sm ${
-                name === preset.name ? "border-ink bg-ink text-paper" : "border-line text-ink"
+                name === preset.name && !drawing ? "border-ink bg-ink text-paper" : "border-line text-ink"
               }`}
             >
               {preset.name}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => (drawing ? stopDraw() : startDraw())}
+            className={`rounded-full border px-3 py-1 text-sm ${drawing ? "border-copper bg-copper text-white" : "border-line text-ink"}`}
+          >
+            {drawing ? "Cancel draw" : "Draw boundary"}
+          </button>
+          {sentinelTileTemplate ? (
+            <button
+              type="button"
+              onClick={() => setShowSatellite((value) => !value)}
+              className={`rounded-full border px-3 py-1 text-sm ${showSatellite ? "border-ink bg-ink text-paper" : "border-line text-ink"}`}
+            >
+              {showSatellite ? "Satellite on" : "Satellite off"}
+            </button>
+          ) : null}
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted">
-            {name} · <span className="font-medium text-ink">{hectares.toFixed(0)} ha</span>
+        {drawing ? (
+          <p className="text-sm text-copper">
+            Click the map to drop corners ({draft.length} so far). Three points, then finish.
           </p>
-          <Button onClick={onAnalyze} disabled={busy}>
-            {busy ? "Reading satellites…" : "Analyze with satellites"}
-          </Button>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">
+            {drawing ? "Drawing" : name} · <span className="font-medium text-ink">{hectaresLabel}</span>
+          </p>
+          <div className="flex gap-2">
+            {drawing ? (
+              <>
+                <Button tone="ghost" onClick={() => setDraft((points) => points.slice(0, -1))} disabled={draft.length === 0}>
+                  Undo
+                </Button>
+                <Button onClick={finishShape} disabled={draft.length < 3}>
+                  Finish shape
+                </Button>
+              </>
+            ) : (
+              <Button onClick={onAnalyze} disabled={busy}>
+                {busy ? "Reading satellites…" : "Analyze with satellites"}
+              </Button>
+            )}
+          </div>
         </div>
         <details>
           <summary className="cursor-pointer text-sm text-muted">Upload GeoJSON</summary>
@@ -128,6 +261,50 @@ export function MapWorkbench({ name, geometry, busy, onChange, onAnalyze }: Prop
       </div>
     </section>
   );
+}
+
+function paintDraft(map: maplibregl.Map, points: LngLat[]) {
+  const source = map.getSource("draft") as maplibregl.GeoJSONSource | undefined;
+  source?.setData(draftCollection(points));
+}
+
+function draftCollection(points: LngLat[]): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+  if (points.length >= 3) {
+    features.push({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "Polygon", coordinates: [[...points, points[0]]] },
+    });
+  } else if (points.length >= 2) {
+    features.push({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString", coordinates: points },
+    });
+  }
+  if (points.length > 0) {
+    features.push({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "MultiPoint", coordinates: points },
+    });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+function applySatellite(map: maplibregl.Map, template: string | null, show: boolean) {
+  if (!map.getLayer("aoi-fill")) return;
+  const id = "sentinel";
+  if (!show || !template) {
+    if (map.getLayer(id)) map.removeLayer(id);
+    if (map.getSource(id)) map.removeSource(id);
+    return;
+  }
+  if (map.getLayer(id)) map.removeLayer(id);
+  if (map.getSource(id)) map.removeSource(id);
+  map.addSource(id, { type: "raster", tiles: [template], tileSize: 256 });
+  map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": 0.85 } }, "aoi-fill");
 }
 
 function fit(map: maplibregl.Map, geometry: Polygon) {
