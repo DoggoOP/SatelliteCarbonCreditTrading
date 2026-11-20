@@ -1,0 +1,20 @@
+{
+  "manaus": {
+    "id": "manaus",
+    "label": "Amazon · Manaus",
+    "detail": "Forest north of Manaus, near Reserva Ducke",
+    "west": -59.97,
+    "south": -2.97,
+    "east": -59.94,
+    "north": -2.94
+  },
+  "humboldt": {
+    "id": "humboldt",
+    "label": "Redwoods · Humboldt",
+    "detail": "Humboldt Redwoods, inland of the Eel River",
+    "west": -124.0,
+    "south": 40.34,
+    "east": -123.97,
+    "north": 40.365
+  }
+}
