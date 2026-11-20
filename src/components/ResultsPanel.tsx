@@ -95,7 +95,11 @@ export function ResultsPanel({ result, polygon, error, loading, areaHa }: Props)
                 {result.uncertainty.level} confidence · {result.uncertainty.score}
               </span>
               <span className="rounded-full bg-white px-2.5 py-1 text-xs text-ink/70 ring-1 ring-line">
-                {result.engine === "data-engine" ? "data-engine" : "built-in engine"}
+                {result.engine === "data-engine"
+                  ? "data-engine"
+                  : result.engine === "builtin+esa-cci"
+                    ? "ESA CCI + built-in"
+                    : "built-in engine"}
               </span>
             </div>
 
@@ -122,6 +126,11 @@ export function ResultsPanel({ result, polygon, error, loading, areaHa }: Props)
               <Stat label="Tree cover" value={pct(result.landcover.treeFraction)} hint={result.landcover.majorityClass || undefined} />
               <Stat label="Clear pixels" value={pct(result.quality.validPixelFraction)} />
               <Stat label="Cloud / shadow" value={pct(result.quality.cloudFraction)} hint={result.quality.sceneDate || undefined} />
+              <Stat
+                label="ESA CCI v7"
+                value={result.biomass.esaDensityMgHa != null ? `${fmt(result.biomass.esaDensityMgHa, 0)} Mg/ha` : "—"}
+                hint={result.biomass.esaYear ? String(result.biomass.esaYear) : "100 m cross-check"}
+              />
               <Stat label="GEDI coverage" value={pct(result.biomass.gediCoverage)} />
               <Stat label="Biomass coverage" value={pct(result.biomass.coverage)} />
             </dl>
@@ -167,7 +176,8 @@ export function ResultsPanel({ result, polygon, error, loading, areaHa }: Props)
               <p className="mt-2 leading-relaxed text-ink/75">{result.carbon.sequestrationMethod}</p>
               <p className="mt-2 text-ink/60">
                 Total biomass {fmt(result.biomass.totalMg)} Mg. Carbon = AGB × {result.carbon.carbonFraction}. tCO₂e = tC × 44/12.
-                {result.biomass.hgbDensityMgHa != null && ` HGB-equivalent AGB ${fmt(result.biomass.hgbDensityMgHa, 0)} Mg/ha.`}
+                {result.biomass.esaDensityMgHa != null && ` ESA CCI ${fmt(result.biomass.esaDensityMgHa, 0)} Mg/ha.`}
+                {result.biomass.hgbDensityMgHa != null && ` HGB ${fmt(result.biomass.hgbDensityMgHa, 0)} Mg/ha.`}
                 {result.biomass.chlorisDensityMgHa != null && ` Chloris ${fmt(result.biomass.chlorisDensityMgHa, 0)} Mg/ha.`}
                 {result.biomass.ndviDensityMgHa != null && ` NDVI model ${fmt(result.biomass.ndviDensityMgHa, 0)} Mg/ha.`}
               </p>

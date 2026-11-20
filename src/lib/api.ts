@@ -13,7 +13,7 @@ export async function analyzeArea(geometry: Polygon, engine: EngineChoice = "aut
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ geometry, engine }),
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(150000),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {

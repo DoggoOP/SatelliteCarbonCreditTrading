@@ -50,35 +50,50 @@ export function MapView({ aoi, mode, focus, ndviTiles, showNdvi, onAoi }: Props)
       zoom: 11,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    map.on("load", () => {
+    const addDrawLayers = () => {
+      if (map.getSource("aoi")) return;
       map.addSource("aoi", { type: "geojson", data: EMPTY });
       map.addSource("draft", { type: "geojson", data: EMPTY });
       map.addLayer({
         id: "aoi-fill",
         type: "fill",
         source: "aoi",
-        paint: { "fill-color": "#e6b15a", "fill-opacity": 0.28 },
+        paint: { "fill-color": "#f0c14a", "fill-opacity": 0.22 },
+      });
+      map.addLayer({
+        id: "aoi-casing",
+        type: "line",
+        source: "aoi",
+        paint: { "line-color": "#04110c", "line-width": 14, "line-opacity": 1 },
       });
       map.addLayer({
         id: "aoi-line",
         type: "line",
         source: "aoi",
-        paint: { "line-color": "#fffaf0", "line-width": 2.2 },
+        paint: { "line-color": "#ffffff", "line-width": 6, "line-opacity": 1 },
+      });
+      map.addLayer({
+        id: "draft-casing",
+        type: "line",
+        source: "draft",
+        paint: { "line-color": "#07140f", "line-width": 7 },
       });
       map.addLayer({
         id: "draft-line",
         type: "line",
         source: "draft",
-        paint: { "line-color": "#fffaf0", "line-width": 2, "line-dasharray": [1.4, 1] },
+        paint: { "line-color": "#ffe08a", "line-width": 3, "line-dasharray": [1.4, 1] },
       });
       map.addLayer({
         id: "draft-pts",
         type: "circle",
         source: "draft",
         filter: ["==", ["geometry-type"], "Point"],
-        paint: { "circle-radius": 4, "circle-color": "#fffaf0", "circle-stroke-width": 1, "circle-stroke-color": "#0e2f24" },
+        paint: { "circle-radius": 5, "circle-color": "#ffffff", "circle-stroke-width": 2, "circle-stroke-color": "#04110c" },
       });
-    });
+    };
+    if (map.isStyleLoaded()) addDrawLayers();
+    else map.on("load", addDrawLayers);
 
     const setDraft = (coordinates: number[][]) => {
       const source = map.getSource("draft") as maplibregl.GeoJSONSource | undefined;
@@ -190,7 +205,7 @@ export function MapView({ aoi, mode, focus, ndviTiles, showNdvi, onAoi }: Props)
         draft?.setData(EMPTY);
       }
     };
-    if (map.isStyleLoaded()) apply();
+    if (map.getSource("draft")) apply();
     else map.once("load", apply);
   }, [mode]);
 
@@ -199,15 +214,12 @@ export function MapView({ aoi, mode, focus, ndviTiles, showNdvi, onAoi }: Props)
     if (!map) return;
     const apply = () => {
       const source = map.getSource("aoi") as maplibregl.GeoJSONSource | undefined;
-      if (!source) return;
-      source.setData(
-        aoi
-          ? { type: "Feature", properties: {}, geometry: aoi }
-          : EMPTY,
-      );
+      if (!source) return false;
+      source.setData(aoi ? { type: "Feature", properties: {}, geometry: aoi } : EMPTY);
+      return true;
     };
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
+    // isStyleLoaded stays false while raster tiles are still arriving, so gate on the source.
+    if (!apply()) map.once("load", apply);
   }, [aoi]);
 
   useEffect(() => {
@@ -222,7 +234,7 @@ export function MapView({ aoi, mode, focus, ndviTiles, showNdvi, onAoi }: Props)
         { padding: 48, duration: 700, maxZoom: 15 },
       );
     };
-    if (map.isStyleLoaded()) apply();
+    if (map.isStyleLoaded() || map.getLayer("satellite")) apply();
     else map.once("load", apply);
   }, [focus]);
 
@@ -233,14 +245,20 @@ export function MapView({ aoi, mode, focus, ndviTiles, showNdvi, onAoi }: Props)
       if (map.getLayer("ndvi")) map.removeLayer("ndvi");
       if (map.getSource("ndvi")) map.removeSource("ndvi");
       if (showNdvi && ndviTiles) {
-        map.addSource("ndvi", { type: "raster", tiles: [ndviTiles], tileSize: 256 });
+        const source = ndviTiles.includes("tilejson.json")
+          ? { type: "raster" as const, url: ndviTiles, tileSize: 256 }
+          : { type: "raster" as const, tiles: [ndviTiles], tileSize: 256 };
+        map.addSource("ndvi", source);
         map.addLayer(
           { id: "ndvi", type: "raster", source: "ndvi", paint: { "raster-opacity": 0.72 } },
           "aoi-fill",
         );
+        for (const id of ["aoi-fill", "aoi-casing", "aoi-line", "draft-casing", "draft-line", "draft-pts"]) {
+          if (map.getLayer(id)) map.moveLayer(id);
+        }
       }
     };
-    if (map.isStyleLoaded()) apply();
+    if (map.getLayer("satellite")) apply();
     else map.once("load", apply);
   }, [ndviTiles, showNdvi]);
 

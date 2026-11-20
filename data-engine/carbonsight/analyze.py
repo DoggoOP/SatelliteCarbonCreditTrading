@@ -31,7 +31,7 @@ def analyze(geojson: dict, *, timeout_s: float = 90.0, include_timeseries: bool 
     area_ha = validate_limits(geom)
     warnings: list[str] = []
 
-    per_call = max(15.0, min(30.0, timeout_s / 3))
+    per_call = max(20.0, min(60.0, timeout_s * 0.6))
     try:
         biomass = load_biomass(geom, timeout=per_call)
     except DataEngineError:

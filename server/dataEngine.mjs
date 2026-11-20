@@ -6,7 +6,7 @@
 
 import { ApiError } from "./http.mjs";
 
-const DEFAULT_BASE = "http://127.0.0.1:8090";
+const DEFAULT_BASE = "http://127.0.0.1:8000";
 let healthCache = { at: 0, base: "", alive: false };
 
 export function dataEngineBase() {
@@ -48,7 +48,7 @@ export async function fetchDataEngineAnalysis(geometry) {
     const res = await fetch(`${base}/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ geometry }),
+      body: JSON.stringify(geometry),
       signal: ctrl.signal,
     });
     const text = await res.text();

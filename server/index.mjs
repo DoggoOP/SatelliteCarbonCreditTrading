@@ -69,24 +69,17 @@ app.post("/api/analyze", async (req, res) => {
 });
 
 async function analyzeAuto(geometry, engine) {
-  if (engine !== "builtin") {
+  if (engine === "data-engine") {
     const alive = await dataEngineAlive();
-    if (alive) {
-      try {
-        const raw = await fetchDataEngineAnalysis(geometry);
-        const normalized = normalizeDataEngine(raw);
-        if (normalized) return normalized;
-        console.warn("data-engine responded but the payload was not a usable estimate");
-        if (engine === "data-engine") {
-          throw new ApiError(502, "DATA_ENGINE", "data-engine responded without a usable estimate.");
-        }
-      } catch (error) {
-        if (engine === "data-engine") throw error;
-        console.warn("data-engine failed, using built-in analyzer:", error.message);
-      }
-    } else if (engine === "data-engine") {
+    if (!alive) {
       throw new ApiError(503, "DATA_ENGINE", `data-engine is not reachable at ${dataEngineBase()}.`);
     }
+    const raw = await fetchDataEngineAnalysis(geometry);
+    const normalized = normalizeDataEngine(raw);
+    if (!normalized) {
+      throw new ApiError(502, "DATA_ENGINE", "data-engine responded without a usable estimate.");
+    }
+    return normalized;
   }
   return analyzeLocal(geometry);
 }

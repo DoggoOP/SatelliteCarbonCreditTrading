@@ -11,6 +11,7 @@
  */
 
 import { bboxContains, centroid, polygonAreaHa } from "../shared/geo.mjs";
+import { fetchEsaCrossCheck } from "./esa.mjs";
 import { ApiError, fetchJson, pool, withTimeout } from "./http.mjs";
 
 const STAC = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
@@ -43,7 +44,7 @@ const WORLDCOVER_NAMES = {
 export function analyzeLocal(geometry) {
   return withTimeout(
     run(geometry),
-    85000,
+    130000,
     "Analysis timed out before every layer returned. Try a smaller polygon.",
   );
 }
@@ -67,6 +68,7 @@ async function run(geometry) {
   }
 
   const [lon, lat] = centroid(geometry);
+  const esaPromise = fetchEsaCrossCheck(geometry);
   const scenes = await searchSentinel(geometry, lon, lat);
   if (!scenes.length) {
     throw new ApiError(
@@ -104,13 +106,14 @@ async function run(geometry) {
   const primaryPoint = pickPrimary(series);
   const primary = primaryPoint.scene;
 
-  const [eviHit, sclHit, hgbHit, chlorisStockHit, chlorisChangeHits, coverHit] = await Promise.all([
+  const [eviHit, sclHit, hgbHit, chlorisStockHit, chlorisChangeHits, coverHit, esa] = await Promise.all([
     sentinelIndex(primary, geometry, EVI_EXPR).catch(() => null),
     sclStats(primary, geometry).catch(() => null),
     hgbStats(geometry).catch(() => null),
     chlorisStock(geometry).catch(() => null),
     chlorisChanges(geometry).catch(() => []),
     worldcover(geometry, lon, lat).catch(() => null),
+    esaPromise,
   ]);
 
   const meanNdvi = clampIndex(primaryPoint.mean) ?? primaryPoint.ndvi;
@@ -177,6 +180,19 @@ async function run(geometry) {
     throw new ApiError(502, "NO_IMAGERY", "Neither biomass layers nor NDVI produced a number for this polygon.");
   }
 
+  const esaUsable = esa && esa.coverage >= 0.45 && esa.agbd > 0;
+  if (esaUsable) {
+    density = esa.agbd;
+    carbonDensity = esa.agbd * CARBON_FRACTION;
+    coverage = Math.max(coverage, esa.coverage);
+    method = "ESA CCI Biomass v7, cross-checked with HGB and Chloris";
+    methodDetail =
+      `Headline AGB is ESA CCI Biomass v${"7"} ${esa.year ?? ""} at 100 m: ${esa.agbd.toFixed(1)} Mg/ha` +
+      (esa.sd != null ? ` (map SD ${esa.sd.toFixed(0)} Mg/ha)` : "") +
+      `. Spawn & Gibbs 2010 reads ${hgbAgb == null ? "n/a" : hgbAgb.toFixed(0)} Mg/ha. ` +
+      `Chloris 2019 reads ${chlorisAgb == null ? "n/a" : chlorisAgb.toFixed(0)} Mg/ha at ~4.6 km.`;
+  }
+
   const totalMg = density * areaHa;
   const stockTC = carbonDensity * areaHa;
   const stockTCo2e = stockTC * CO2_FACTOR;
@@ -192,6 +208,17 @@ async function run(geometry) {
     sequestrationMethod =
       "Chloris annual stock change, averaged across 2016–2019 and converted from tonnes CO₂e per ~4.6 km pixel to a per-hectare flux. Negative values are a net source.";
   }
+  if (
+    esaUsable &&
+    esa.seqHa != null &&
+    (esa.seqConfidence === "High" || esa.seqConfidence === "Medium") &&
+    Math.abs(esa.seqHa) >= 0.75
+  ) {
+    seqTco2eHa = esa.seqHa;
+    seqTdmHa = esa.seqHa / (CARBON_FRACTION * CO2_FACTOR);
+    sequestrationMethod =
+      "ESA CCI Biomass v7 five-year stock difference, converted with carbon fraction 0.47 and 44/12.";
+  }
 
   const uncertainty = buildUncertainty({
     density,
@@ -206,9 +233,12 @@ async function run(geometry) {
     chlorisAgb,
     ndviAgb,
     gediCoverage: 0,
+    esa,
+    esaUsed: Boolean(esaUsable),
+    pixelHa,
   });
 
-  const ndviTile = ndviTileTemplate(primary.id);
+  const ndviTile = ndviTilejson(primary.id);
   const limitations = [
     "Screening estimate for a hackathon demo. It is not a verified carbon credit, a registry issuance, or a substitute for a plot inventory.",
     "GEDI L4A footprints and L4B 1 km AGBD were not used. NASA Earthdata / ORNL DAAC require an authenticated download, which this anonymous deployment does not have.",
@@ -217,15 +247,21 @@ async function run(geometry) {
     "The NDVI regression (Poudel et al. 2023, Chure, Nepal) is only the gap-fill. It saturates well below Amazon or redwood stocks.",
     "IPCC Tier-1 growth rates are ecological-zone defaults for natural forest older than 20 years. They are not observed net ecosystem exchange.",
     "Chloris is CC BY-NC-SA 4.0. The harmonized biomass map is read through Microsoft Planetary Computer.",
+    "ESA CCI Biomass v7 is the 100 m headline when the data-engine is running. Its per-pixel standard deviation is wide, and a five-year change smaller than that spread is not treated as measured sequestration.",
   ];
   if (chlorisTco2eHa != null) {
     limitations.push(
       `Chloris net change over this cell averages ${chlorisTco2eHa.toFixed(2)} tCO₂e/ha/yr. Values near zero are common for intact forest at 4.6 km because gains and losses cancel.`,
     );
   }
+  if (esaUsable && esa.seqHa != null) {
+    limitations.push(
+      `ESA CCI five-year change is ${esa.seqHa.toFixed(2)} tCO₂e/ha/yr (their sequestration confidence: ${esa.seqConfidence || "n/a"}).`,
+    );
+  }
 
   return {
-    engine: "builtin",
+    engine: esaUsable ? "builtin+esa-cci" : "builtin",
     generatedAt: new Date().toISOString(),
     areaHa: round(areaHa, 1),
     centroid: [round(lon, 5), round(lat, 5)],
@@ -247,6 +283,10 @@ async function run(geometry) {
       ndviDensityMgHa: ndviAgb == null ? null : round(ndviAgb, 1),
       hgbYear: hgb ? 2010 : null,
       chlorisYear: chlorisAgb == null ? null : 2019,
+      esaDensityMgHa: esaUsable ? round(esa.agbd, 1) : null,
+      esaSdMgHa: esaUsable && esa.sd != null ? round(esa.sd, 1) : null,
+      esaYear: esaUsable ? esa.year : null,
+      esaCoverage: esaUsable ? round(esa.coverage, 3) : null,
     },
     carbon: {
       stockTC: round(stockTC, 0),
@@ -270,7 +310,7 @@ async function run(geometry) {
       majorityClass: cover.majorityClass,
       ipccZone: ipcc.label,
     },
-    overlay: { tileUrl: ndviTile },
+    overlay: { tileUrl: null, tilejsonUrl: ndviTile },
     sources: [
       {
         name: "Sentinel-2 L2A",
@@ -285,6 +325,12 @@ async function run(geometry) {
         name: "Chloris Global Biomass",
         detail:
           "Annual woody aboveground stock through 2019 in tonnes per ~4.6 km pixel, and annual change in tonnes CO₂e per pixel. Planetary Computer collection chloris-biomass.",
+      },
+      {
+        name: "ESA CCI Biomass v7",
+        detail: esaUsable
+          ? `Santoro & Cartus (2025), 100 m AGBD for ${esa.year ?? "the latest year"}. Tiles: ${(esa.tiles || []).join(", ") || "n/a"}. This is the headline stock when coverage is at least 45%.`
+          : "The data-engine did not return a 100 m biomass sample for this request. HGB and Chloris were used instead.",
       },
       {
         name: "ESA WorldCover 2021",
@@ -668,6 +714,9 @@ function buildUncertainty({
   chlorisAgb,
   ndviAgb,
   gediCoverage,
+  esa,
+  esaUsed,
+  pixelHa,
 }) {
   const valid = validPixelFraction ?? 0.5;
   const cloud = cloudFraction ?? 0.4;
@@ -679,26 +728,34 @@ function buildUncertainty({
   score += sceneAgeDays <= 90 ? 12 : sceneAgeDays <= 200 ? 8 : sceneAgeDays <= 400 ? 4 : 1;
 
   let agreement = null;
-  if (hgbAgb && chlorisAgb) {
-    agreement = 1 - Math.min(1, Math.abs(hgbAgb - chlorisAgb) / ((hgbAgb + chlorisAgb) / 2));
+  if (esaUsed && esa && hgbAgb) {
+    agreement = relativeAgreement(esa.agbd, hgbAgb);
+    if (chlorisAgb && areaHa >= pixelHa) {
+      agreement = agreement * 0.7 + relativeAgreement(esa.agbd, chlorisAgb) * 0.3;
+    }
+  } else if (hgbAgb && chlorisAgb && areaHa >= (pixelHa || 0)) {
+    agreement = relativeAgreement(hgbAgb, chlorisAgb);
   } else if (hgbAgb && ndviAgb) {
     if (hgbAgb > 180 && ndviAgb > 120) agreement = 0.55;
-    else agreement = 1 - Math.min(1, Math.abs(hgbAgb - ndviAgb) / Math.max(1, (hgbAgb + ndviAgb) / 2));
+    else agreement = relativeAgreement(hgbAgb, ndviAgb);
   }
-  if (agreement != null) score += agreement * 13;
+  if (agreement != null) score += agreement * 15;
   score = Math.round(Math.max(0, Math.min(100, score)));
 
-  const pixelSeCarbon = hgb?.carbonSe ?? carbonDensity * 0.45;
-  const crossCheck = chlorisAgb != null ? Math.abs(carbonDensity - chlorisAgb * CARBON_FRACTION) : pixelSeCarbon;
-  const halfCarbon = Math.max(pixelSeCarbon, crossCheck * 0.5);
+  const pixelSeCarbon = esaUsed && esa?.sd != null ? esa.sd * CARBON_FRACTION : (hgb?.carbonSe ?? carbonDensity * 0.45);
+  const crossCheck = hgbAgb != null && esaUsed ? Math.abs(carbonDensity - hgbAgb * CARBON_FRACTION) : pixelSeCarbon;
+  const halfCarbon = Math.max(pixelSeCarbon * 0.5, crossCheck * 0.5);
   const halfAgb = halfCarbon / CARBON_FRACTION;
   const rel = carbonDensity > 0 ? halfCarbon / carbonDensity : 1;
 
   let level = "Low";
-  if (score >= 72 && coverage >= 0.65 && valid >= 0.7 && cloud <= 0.2 && rel <= 0.4) level = "High";
-  else if (score >= 48 && coverage >= 0.3 && valid >= 0.45) level = "Medium";
-  if (rel > 0.7) level = "Low";
-  else if (rel > 0.45 && level === "High") level = "Medium";
+  if (score >= 75 && coverage >= 0.6 && valid >= 0.7 && cloud <= 0.2 && (agreement == null || agreement >= 0.55)) {
+    level = "High";
+  } else if (score >= 48 && coverage >= 0.3 && valid >= 0.45) level = "Medium";
+  if (agreement != null && agreement < 0.35) level = "Low";
+  else if (agreement != null && agreement < 0.5 && level === "High") level = "Medium";
+  if (!esaUsed && rel > 0.7) level = "Low";
+  else if (!esaUsed && rel > 0.45 && level === "High") level = "Medium";
 
   const notes = [
     gediCoverage > 0
@@ -708,29 +765,45 @@ function buildUncertainty({
     `Sentinel-2 clear-pixel fraction is ${(valid * 100).toFixed(0)}% and cloud/shadow is ${(cloud * 100).toFixed(0)}%. Scene age is ${Math.round(sceneAgeDays)} days.`,
   ];
   if (agreement != null) {
-    notes.push(`Agreement score between the biomass layers (or the NDVI gap-fill) is ${(agreement * 100).toFixed(0)}%.`);
+    const compared = esaUsed ? "ESA CCI and the 2010 harmonized map" : "the biomass layers";
+    notes.push(`Agreement between ${compared} is ${(agreement * 100).toFixed(0)}%.`);
   }
-  if (hgb?.carbonSe) {
+  if (esaUsed && esa?.sd != null) {
+    notes.push(
+      `The numeric range follows the ESA CCI per-pixel standard deviation (about ${esa.sd.toFixed(0)} Mg/ha), not a registry confidence interval.`,
+    );
+  } else if (hgb?.carbonSe) {
     notes.push(
       `The mapped range uses the HGB per-pixel standard error (about ${hgb.carbonSe.toFixed(0)} Mg C/ha), which is wider than the uncertainty of a polygon mean.`,
     );
   }
 
+  const agbdLow = esaUsed && esa?.range ? Math.max(0, esa.range[0]) : Math.max(0, density - halfAgb);
+  const agbdHigh = esaUsed && esa?.range ? esa.range[1] : density + halfAgb;
+  const lowCarbon = agbdLow * CARBON_FRACTION * areaHa;
+  const highCarbon = agbdHigh * CARBON_FRACTION * areaHa;
+
   return {
     level,
     score,
-    agbdLow: round(Math.max(0, density - halfAgb), 1),
-    agbdHigh: round(density + halfAgb, 1),
-    carbonTCLow: round(Math.max(0, (carbonDensity - halfCarbon) * areaHa), 0),
-    carbonTCHigh: round((carbonDensity + halfCarbon) * areaHa, 0),
+    agbdLow: round(agbdLow, 1),
+    agbdHigh: round(agbdHigh, 1),
+    carbonTCLow: round(Math.max(0, lowCarbon), 0),
+    carbonTCHigh: round(highCarbon, 0),
     notes,
   };
 }
 
-function ndviTileTemplate(itemId) {
+function relativeAgreement(a, b) {
+  const mid = (Math.abs(a) + Math.abs(b)) / 2;
+  if (mid <= 0) return 1;
+  return 1 - Math.min(1, Math.abs(a - b) / mid);
+}
+
+function ndviTilejson(itemId) {
   const expr = encodeURIComponent(NDVI_EXPR);
   return (
-    "https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
+    "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json" +
     `?collection=sentinel-2-l2a&item=${encodeURIComponent(itemId)}` +
     `&asset_as_band=true&nodata=0&expression=${expr}&rescale=0,0.9&colormap_name=rdylgn`
   );

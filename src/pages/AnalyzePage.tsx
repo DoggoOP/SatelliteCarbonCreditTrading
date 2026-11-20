@@ -97,8 +97,8 @@ export function AnalyzePage() {
           aoi={aoi}
           mode={mode}
           focus={focus}
-          ndviTiles={result?.overlay.tileUrl ?? null}
-          showNdvi={showNdvi && Boolean(result?.overlay.tileUrl)}
+          ndviTiles={result?.overlay.tilejsonUrl ?? result?.overlay.tileUrl ?? null}
+          showNdvi={showNdvi && Boolean(result?.overlay.tilejsonUrl ?? result?.overlay.tileUrl)}
           onAoi={(geometry) => {
             setAoi(geometry);
             setResult(null);
@@ -167,7 +167,7 @@ export function AnalyzePage() {
             >
               Clear
             </Tool>
-            {result?.overlay.tileUrl && (
+            {(result?.overlay.tilejsonUrl || result?.overlay.tileUrl) && (
               <Tool active={showNdvi} onClick={() => setShowNdvi((value) => !value)}>
                 NDVI overlay
               </Tool>

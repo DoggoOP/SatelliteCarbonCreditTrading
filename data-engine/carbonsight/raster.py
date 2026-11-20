@@ -22,7 +22,10 @@ def open_raster(url: str, *, token: str | None = None, timeout: float = 25):
     """Open a remote GeoTIFF. An Earthdata bearer token stays inside this env."""
     options = {
         "GDAL_HTTP_TIMEOUT": str(max(5, int(timeout))),
-        "GDAL_HTTP_MAX_RETRY": "2",
+        "GDAL_HTTP_MAX_RETRY": "1",
+        "GDAL_HTTP_RETRY_DELAY": "0.5",
+        # HTTP/2 to CEDA often dies with "unexpected eof" during the TLS handshake.
+        "GDAL_HTTP_VERSION": "1.1",
     }
     if token:
         # Sent only to this open. GDAL drops the header if Earthdata redirects

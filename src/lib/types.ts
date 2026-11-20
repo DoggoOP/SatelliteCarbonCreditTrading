@@ -10,7 +10,7 @@ export type NdviPoint = {
 };
 
 export type AnalysisResult = {
-  engine: "builtin" | "data-engine";
+  engine: "builtin" | "data-engine" | "builtin+esa-cci";
   generatedAt: string;
   areaHa: number;
   centroid: [number, number] | null;
@@ -30,6 +30,10 @@ export type AnalysisResult = {
     ndviDensityMgHa: number | null;
     hgbYear: number | null;
     chlorisYear: number | null;
+    esaDensityMgHa?: number | null;
+    esaSdMgHa?: number | null;
+    esaYear?: number | null;
+    esaCoverage?: number | null;
   };
   carbon: {
     stockTC: number;
@@ -61,7 +65,7 @@ export type AnalysisResult = {
     majorityClass: string | null;
     ipccZone: string;
   };
-  overlay: { tileUrl: string | null };
+  overlay: { tileUrl: string | null; tilejsonUrl?: string | null };
   sources: { name: string; detail: string }[];
   limitations: string[];
 };

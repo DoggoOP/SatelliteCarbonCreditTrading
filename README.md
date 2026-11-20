@@ -13,7 +13,13 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. One command starts the API on port 8787 and the Vite app on port 5173.
+Open http://localhost:5173. One command starts the API on port 8787, the Vite app on port 5173, and the Python biomass engine on port 8000.
+
+The first time on a machine, install the Python packages once (rasterio and friends):
+
+```bash
+npm run setup:engine
+```
 
 Headless check against the two demo forests (needs a network, takes about 20–40 seconds each):
 
@@ -30,15 +36,11 @@ npm run analyze -- humboldt
 4. The panel reports area, NDVI, an NDVI series, biomass density, carbon stock (tC and tCO₂e), sequestration, clear-pixel and cloud fraction, biomass-map coverage, GEDI coverage, a High/Medium/Low confidence score with a numeric range, and the method. Toggle the NDVI overlay after a successful run.
 5. **List credits** checks the result with `createListingFromAnalysis()` and opens `/marketplace/list` with the polygon, stock, sequestration, and confidence filled in. Browse and portfolio live under `/marketplace`.
 
-## Optional data-engine
+## Data engine
 
-The built-in analyzer is the default. If a `data-engine` service is running, the API prefers it.
+`npm run dev` also starts `data-engine` (FastAPI) at http://127.0.0.1:8000. Each analysis asks it for ESA CCI Biomass v7 (100 m, through 2024, no login) and shows that density next to the 2010 harmonized map and Chloris. When coverage is at least 45%, ESA CCI is the headline stock. Agreement between ESA CCI and the 2010 map changes the confidence score. If the engine is down, the request still returns the built-in estimate.
 
-```bash
-DATA_ENGINE_URL=http://127.0.0.1:8090 npm run dev
-```
-
-The server calls `POST /analyze` with `{ "geometry": <GeoJSON Polygon> }` and uses the response when it normalizes to a real estimate. On timeout, a mock payload, or an unreachable host, the request falls back to the built-in path. Force a path with `{ "engine": "builtin" }` or `{ "engine": "data-engine" }`.
+Override the URL with `DATA_ENGINE_URL`. `POST /analyze` on that service takes the GeoJSON polygon itself, not a wrapper object.
 
 ## What the built-in estimate uses
 

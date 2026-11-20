@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 import numpy as np
 from rasterio.enums import Resampling
@@ -63,6 +64,19 @@ def sd_url(tile: str, year: int) -> str:
 
 
 def _masked_values(url: str, polygon, timeout: float) -> np.ndarray | None:
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            return _masked_values_once(url, polygon, timeout)
+        except Exception as exc:
+            last_error = exc
+            time.sleep(0.6)
+    if last_error is not None:
+        raise last_error
+    return None
+
+
+def _masked_values_once(url: str, polygon, timeout: float) -> np.ndarray | None:
     with open_raster(url, timeout=timeout) as dataset:
         located = polygon_window(dataset, polygon)
         if located is None:
