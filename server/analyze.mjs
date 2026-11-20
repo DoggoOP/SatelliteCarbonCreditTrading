@@ -89,6 +89,7 @@ async function run(geometry) {
       sceneCloud: round(scene.cloud, 1),
       mean: hit.value.mean,
       median: hit.value.median,
+      validPercent: hit.value.validPercent,
       scene,
     });
   });
@@ -373,9 +374,13 @@ async function searchSentinel(geometry, lon, lat) {
 }
 
 function pickPrimary(series) {
-  const recentClear = [...series].reverse().find((p) => p.scene.cloud <= 15);
-  if (recentClear) return recentClear;
-  return [...series].sort((a, b) => a.scene.cloud - b.scene.cloud)[0];
+  const covered = series.filter((point) => (point.validPercent ?? 0) >= 0.55);
+  const pool = covered.length ? covered : series;
+  const recent = [...pool].reverse().find((point) => point.scene.cloud <= 30);
+  if (recent) return recent;
+  return [...pool].sort(
+    (a, b) => (b.validPercent ?? 0) - (a.validPercent ?? 0) || a.scene.cloud - b.scene.cloud,
+  )[0];
 }
 
 async function sentinelIndex(scene, geometry, expression) {
