@@ -1,0 +1,285 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "Published reference aboveground biomass for CarbonSight sanity checks. Derived carbon and tCO2e use the product default CF = 0.47 and 44/12. They are arithmetic, not independent chemical measurements, unless carbon_reported_by_paper is set.",
+  "reviewed": "2026-11-19",
+  "conversions": {
+    "carbon_fraction_default": 0.47,
+    "carbon_fraction_source": "IPCC 2006 Vol. 4 Ch. 4 Table 4.3 default; 2019 Refinement does not revise Table 4.3",
+    "co2_per_t_carbon": "44/12",
+    "co2_per_t_carbon_decimal": 3.6666666666666665,
+    "formula_stock_tco2e_per_ha": "agb_mg_ha * 0.47 * 44/12"
+  },
+  "screening_threshold_note": "pass_if and fail_if are hackathon screening rules derived from the cited dispersion. They are not published confidence intervals and must not be used to clamp model output.",
+  "sites": [
+    {
+      "id": "central_amazon_zf2_manaus",
+      "name": "INPA ZF-2 terra-firme forest near Manaus, Brazil",
+      "biome": "tropical_rainforest_primary",
+      "role": "high_biomass_forest",
+      "map_anchor": {
+        "latitude": -2.6,
+        "longitude": -60.2,
+        "coordinate_status": "approximate_conventional_location_of_ZF2_not_a_surveyed_plot_corner",
+        "do_not_use": "The JIRCAS PDF of Suwa et al. 2013 prints 2°36'S, 11°35'W. That longitude is not near Manaus. Do not navigate there."
+      },
+      "what_was_measured": "Trees with diameter > 10 cm on a 2500 m by 20 m belt transect (125 subplots of 20 m by 20 m). Understory below 10 cm is excluded.",
+      "agb_mg_ha": {
+        "value": 316.6,
+        "reported_dispersion": "±28.3, labeled SE by the authors, across adjacent subplots that are not independent samples of the region",
+        "abstract_rounding": "317 ± 28 (SE)"
+      },
+      "topographic_endmembers_2016": {
+        "plateau_mg_ha": 315.4,
+        "plateau_dispersion": "±33.2 SE",
+        "baixio_mg_ha": 224.2,
+        "baixio_dispersion": "±20.3 SE",
+        "plateau_minus_baixio_p": 0.09,
+        "source_note": "JARQ 50(4) 2016 abstract. Author list not re-copied in this file."
+      },
+      "ipcc_2019_table_4_7_context": {
+        "ecozone": "tropical rainforest, North and South America, primary",
+        "agb_mg_ha": 307.1,
+        "sd": 104.9,
+        "note": "Ecozone prior, not a measurement of ZF-2."
+      },
+      "derived_using_default_cf": {
+        "carbon_t_ha": 148.802,
+        "stock_tco2e_ha": 545.607,
+        "is_measurement": false
+      },
+      "sequestration_tier1": {
+        "table": "IPCC 2019 Vol. 4 Ch. 4 Table 4.9",
+        "row": "tropical rainforest, North and South America, primary",
+        "net_agb_growth_t_dm_ha_yr": 1.0,
+        "sd": 2.0,
+        "derived_tco2e_ha_yr": 1.723,
+        "derived_tco2e_sd": 3.447,
+        "note": "SD exceeds the mean, so the Tier-1 rate is not distinguishable from zero. The 2006 >20-year South America value of 3.1 (range 1.5-5.5) is a different row and should not replace this one for primary forest."
+      },
+      "screening": {
+        "agb_pass_mg_ha": [150, 500],
+        "agb_fail_below_mg_ha": 80,
+        "agb_fail_above_mg_ha": 700
+      },
+      "sources": [
+        {
+          "citation": "Suwa, R., Sakai, T., dos Santos, J., da Silva, R. P., Kajimoto, T., Ishizuka, M., and Higuchi, N. (2013). JARQ 47(1): 109-114.",
+          "doi": "10.6090/jarq.47.109"
+        },
+        {
+          "citation": "Topographic biomass remeasurement in terra-firme forest near Manaus (2016). JARQ 50(4).",
+          "url": "https://www.jstage.jst.go.jp/article/jarq/50/4/50_379/_article/-char/en"
+        }
+      ]
+    },
+    {
+      "id": "humboldt_coast_redwood",
+      "name": "Old-growth coast redwood, Humboldt Redwoods State Park area, California",
+      "biome": "temperate_oceanic_conifer_sequoia",
+      "role": "extreme_high_biomass_and_gedi_underestimation_check",
+      "map_anchor": {
+        "park_centroid": {"latitude": 40.31194, "longitude": -123.97167, "status": "Humboldt Redwoods State Park centroid from the park's Wikipedia entry, not a plot corner"},
+        "rockefeller_forest_topo": {"latitude": 40.355695, "longitude": -123.966986, "status": "USGS Weott quadrangle feature coordinate, not a Sillett plot corner"},
+        "study_latitude_band": "40-42 N, primary Sequoia sempervirens forests (Sillett et al. 2024)"
+      },
+      "plot_allometry_sillett_2020": {
+        "agb_mg_ha_range": [1594, 4341],
+        "carbon_mg_ha_range_reported_by_paper": [805, 2201],
+        "implied_carbon_fraction": [0.505, 0.507],
+        "live_biomass_increment_mg_ha_yr": [1.2, 19.2],
+        "n_plots_ha": 11,
+        "note": "Exceptional 1 ha research plots, including dead-wood input in the gross biomass increase of 14.7-40.7 Mg ha-1 yr-1. Not the expected GEDI polygon mean."
+      },
+      "landscape_remote_sensing_sillett_2024": {
+        "gedi_equation_means_mg_ha": [916, 928],
+        "gedi_equation_se": [74, 11],
+        "als_live_tree_mg_ha": 1384,
+        "als_se": 77,
+        "gedi_across_37465_ha_mg_ha": 885,
+        "gedi_se": 73,
+        "area_ha": 37465,
+        "note": "GEDI underestimates relative to airborne lidar because height is a weak predictor in the tallest stands. Hectares above 3000 Mg ha-1 are about 1% of primary forest in the study and are concentrated on 460 ha of alluvial terrace in Humboldt Redwoods State Park."
+      },
+      "derived_using_default_cf_on_gedi_landscape_mean": {
+        "input_agb_mg_ha": 885,
+        "carbon_t_ha": 415.95,
+        "stock_tco2e_ha": 1525.15,
+        "is_measurement": false,
+        "warning": "Sillett et al. 2020 carbon implies CF about 0.51, not 0.47. 885 * 0.51 * 44/12 = 1655 t CO2e ha-1. Show both."
+      },
+      "ipcc_2006_table_4_7_context": {
+        "row": "temperate oceanic forest, North America",
+        "agb_mg_ha": 660,
+        "printed_range": [80, 1200],
+        "note": "Research plots exceed the printed upper bound. Do not clamp to 1200."
+      },
+      "screening": {
+        "if_sensor_is_gedi": {"pass_mg_ha": [500, 1800], "fail_below_mg_ha": 400},
+        "if_sensor_claims_plot_allometry": {"may_exceed_mg_ha": 1500, "alluvial_terrace_can_exceed_mg_ha": 3000, "fail_if_equals_ipcc_temperate_prior": true}
+      },
+      "sources": [
+        {"citation": "Sillett et al. (2020). Forest Ecology and Management, article 117740.", "doi": "10.1016/j.foreco.2019.117740"},
+        {"citation": "Sillett et al. (2024). Forest Ecology and Management.", "doi": "10.1016/j.foreco.2024.121879"}
+      ]
+    },
+    {
+      "id": "hubbard_brook_temperate_deciduous",
+      "name": "Hubbard Brook Experimental Forest, New Hampshire, USA",
+      "biome": "temperate_continental_northern_hardwood",
+      "role": "mid_biomass_forest_and_near_zero_net_flux",
+      "map_anchor": {
+        "latitude": 43.933333,
+        "longitude": -71.75,
+        "coordinate_status": "USDA Forest Service: 43°56' N, 71°45' W. Valley extent is 3138 ha; this is not one plot.",
+        "url": "https://research.fs.usda.gov/nrs/forestsandranges/locations/hubbardbrook"
+      },
+      "agb_mg_ha": {
+        "preferred_test_value": 245,
+        "year": "2005-2006",
+        "ci95": [234, 256],
+        "previous_census": {"value": 246, "year": "1995-1996", "ci95": [235, 258]},
+        "n_plots": 371,
+        "definition_note": "Van Doorn et al. 2011 call this live-tree biomass and total biomass. Treated here as aboveground live trees. Roots not confirmed from the abstract."
+      },
+      "alternate_budget_fahey_2005_via_synthesis": {
+        "aboveground_biomass_mg_ha": 189.9,
+        "se_mg_ha": 2.48,
+        "year": 1997,
+        "source": "Hubbard Brook synthesis Table 5.1, attributed to Fahey et al. 2005. Original 2005 article not re-read.",
+        "url": "https://hbr-lter.github.io/synthesisbook/BiomassProductivity.html"
+      },
+      "stock_change": {
+        "doi_10.1139/x06-261": {
+          "agb_1981_mg_ha": 209,
+          "agb_2001_mg_ha": 216,
+          "mean_net_change_mg_ha_yr": 0.35,
+          "anpp_mg_ha_yr": 6.53,
+          "anpp_woody_mg_ha_yr": 3.28,
+          "anpp_leaf_mg_ha_yr": 3.25,
+          "nep_note": "Paper states net ecosystem productivity was near zero. Do not put ANPP into the sequestration field."
+        },
+        "van_doorn_2011": "No significant live-tree biomass change from 1995-96 to 2005-06."
+      },
+      "derived_using_default_cf": {
+        "input_agb_mg_ha": 245,
+        "carbon_t_ha": 115.15,
+        "stock_tco2e_ha": 422.217,
+        "broadleaf_cf_0_48_carbon_t_ha": 117.6,
+        "is_measurement": false
+      },
+      "sequestration_tier1_that_this_site_rejects_as_a_local_flux": {
+        "table": "IPCC 2006 Vol. 4 Ch. 4 Table 4.9",
+        "row": "temperate continental forest > 20 years; Asia, Europe, and North America",
+        "net_agb_growth_t_dm_ha_yr": 4.0,
+        "printed_range": [0.5, 7.5],
+        "derived_tco2e_ha_yr": 6.893,
+        "acceptable_only_if_labeled": "IPCC default, not the Hubbard Brook remeasurement"
+      },
+      "screening": {
+        "agb_pass_mg_ha": [170, 320],
+        "agb_fail_below_mg_ha": 100,
+        "agb_fail_above_mg_ha": 500,
+        "net_flux_unlabeled_fail_if_near_mg_ha_yr": 4.0,
+        "net_flux_pass_mg_ha_yr": [-1, 1]
+      },
+      "sources": [
+        {"citation": "van Doorn, N. S., Battles, J. J., Fahey, T. J., Siccama, T. G., and Schwarz, P. A. (2011).", "doi": "10.1139/x11-063"},
+        {"citation": "Population and biomass dynamics of trees at Hubbard Brook (2007).", "doi": "10.1139/x06-261"}
+      ]
+    },
+    {
+      "id": "kruger_savanna",
+      "name": "Kruger National Park woody savanna, South Africa",
+      "biome": "semi_arid_savanna",
+      "role": "low_woody_biomass_grass_ndvi_trap",
+      "map_anchor": {
+        "suggested_landscape": "Southern Kruger granite near Skukuza, upland, not the riparian corridor",
+        "orientation_pin": {"latitude": -25.0, "longitude": 31.6, "status": "Approximate Skukuza area for map orientation only. Not a plot corner. Confirm on the basemap."},
+        "coordinate_status": "park-wide statistic; a single polygon should not be scored against exactly 28.3"
+      },
+      "agb_mg_ha": {
+        "park_wide_woody_mean": 28.3,
+        "table_dispersion": "±0.06 in the paper's summary table",
+        "excludes": "Riparian woodlands, about 2-4% of park area",
+        "unit_warning": "The paper text says total woody AGB of 53.8 Gg. That unit disagrees with 28.3 Mg ha-1 times about 1.9 million ha (about 54 Tg). Use the density, not the Gg total."
+      },
+      "within_park_examples_mg_ha": {
+        "skukuza_granite_streams": 34.1,
+        "skukuza_granite_crests": 26.8,
+        "skukuza_granite_footslopes": 17.7,
+        "lower_sabie_basalt_mean": 6.5,
+        "nickless_2011_granite_field_plot_4ha": 22.9,
+        "makhohlola_basalt_exclosure": 36.9,
+        "makhohlola_basalt_outside": 2.7
+      },
+      "derived_using_default_cf_on_park_mean": {
+        "carbon_t_ha": 13.301,
+        "stock_tco2e_ha": 48.77,
+        "is_measurement": false,
+        "pool": "woody aboveground only; grass is not included"
+      },
+      "sequestration_tier1": null,
+      "screening": {
+        "agb_pass_mg_ha": [3, 80],
+        "agb_fail_above_mg_ha": 150,
+        "flux_must_be": "null_or_a_savanna_specific_citation_this_repo_does_not_provide"
+      },
+      "sources": [
+        {
+          "citation": "Colgan, M. S., Asner, G. P., Levick, S. R., Martin, R. E., and Chadwick, O. A. (2012). Biogeosciences 9: 1809-1821.",
+          "doi": "10.5194/bg-9-1809-2012"
+        }
+      ]
+    },
+    {
+      "id": "mojave_edwards_saltbush",
+      "name": "Saltbush pan-dune mosaic, Edwards Air Force Base, western Mojave Desert, California",
+      "biome": "desert_shrub",
+      "role": "near_zero_control",
+      "map_anchor": {
+        "latitude": 34.833333,
+        "longitude": -117.916667,
+        "coordinate_status": "Printed in the paper as 34°50' N, 117°55' W. Vegetated dunes and flats, not the bare playa of Rogers Dry Lake.",
+        "elevation_m": 700
+      },
+      "agb_mg_ha": {
+        "live_plus_dead_range": [0.503, 1.204],
+        "unit_in_paper": "503-1204 kg ha-1 aboveground shrub and bunchgrass biomass including dead material",
+        "community_live_plus_dead_kg_ha": {
+          "dune_1": 503,
+          "dune_2": 956,
+          "flat_3": 1123,
+          "abstract_upper": 1204
+        }
+      },
+      "derived_using_default_cf": {
+        "carbon_t_ha_range": [0.236, 0.566],
+        "stock_tco2e_ha_range": [0.867, 2.075],
+        "is_measurement": false,
+        "cf_note": "0.47 is the forest default and the grassland herbaceous default. It is applied here only so the app's own formula can be checked. It is not a Mojave-specific assay."
+      },
+      "sequestration_tier1": null,
+      "screening": {
+        "agb_pass_mg_ha": [0, 5],
+        "agb_review_mg_ha": [5, 15],
+        "agb_fail_above_mg_ha": 20,
+        "flux_fail_if": "any IPCC forest Table 4.9 or 4.10 row is applied",
+        "known_bad_model": "Ilam Sentinel-2 equation AGB = -113.602 + 983.414*NDVI returns about 34 Mg ha-1 at NDVI 0.15, which fails this site."
+      },
+      "sources": [
+        {
+          "citation": "Sharifi, R., Brostoff, W. N., and Rundel, P. W. (2017). Aliso 35(2).",
+          "doi": "10.5642/aliso.20173502.04"
+        }
+      ]
+    }
+  ],
+  "order_check": [
+    "humboldt_coast_redwood",
+    "central_amazon_zf2_manaus",
+    "hubbard_brook_temperate_deciduous",
+    "kruger_savanna",
+    "mojave_edwards_saltbush"
+  ],
+  "order_check_note": "Expected descending AGB for a correct system. Humboldt (GEDI landscape ~900, plots much higher) above Manaus (~300) above Hubbard Brook (~200-250) above Kruger (tens) above Mojave (~1)."
+}
