@@ -156,50 +156,59 @@ export async function analyzeArea(request: AnalysisRequest): Promise<AnalysisRes
   let ndviMean: number | null = null;
   let eviMean: number | null = null;
   const timeseries: TimeSeriesPoint[] = [];
-  if (modis.feature && modis.stats) {
-    const ndviStat = stat(modis.stats, "250m_16_days_NDVI");
-    const eviStat = stat(modis.stats, "250m_16_days_EVI");
-    if (ndviStat && ndviStat.valid_percent >= 30) {
-      ndviMean = modisViToUnit(ndviStat.mean);
-      if (ndviMean < -0.2 || ndviMean > 1) {
-        warnings.push(`Discarded MODIS NDVI ${ndviMean.toFixed(3)} because it is outside a physical range.`);
-        ndviMean = null;
-      }
+
+  // === MODIS TIMESERIES (Agent 2 requirement - 4 parallel scenes) ===
+  const modisItems = await searchStac({
+    collections: ["modis-13Q1-061"],
+    datetime: isoDaysAgo(540),
+    limit: 8,
+  });
+
+  const sorted = [...modisItems].sort((a, b) => featureTime(b).localeCompare(featureTime(a)));
+  const firstFour = sorted.slice(0, 4);
+
+  const statsPromises = firstFour.map(async (item) => {
+    try {
+      const stats = await itemStatistics("modis-13Q1-061", item.id, {
+        assets: ["250m_16_days_NDVI", "250m_16_days_EVI"],
+      });
+      const ndviStat = stat(stats, "250m_16_days_NDVI");
+      const eviStat = stat(stats, "250m_16_days_EVI");
+      const valid = ndviStat?.valid_percent ?? 0;
+      if (valid < 30) throw new Error("low validity");
+
+      return {
+        date: featureTime(item).slice(0, 10),
+        ndvi: ndviStat ? modisViToUnit(ndviStat.mean) : null,
+        evi: eviStat ? modisViToUnit(eviStat.mean) : null,
+        cloudFraction: null,
+        validPercent: valid,
+      } as TimeSeriesPoint;
+    } catch {
+      return null;
     }
-    if (eviStat && eviStat.valid_percent >= 30) {
-      eviMean = modisViToUnit(eviStat.mean);
-      if (eviMean < -0.2 || eviMean > 1) eviMean = null;
-    }
-    const observedAt = featureTime(modis.feature);
-    timeseries.push({
-      date: observedAt.slice(0, 10) || new Date().toISOString().slice(0, 10),
-      ndvi: ndviMean,
-      evi: eviMean,
-      cloudFraction: null,
-      validPercent: ndviStat?.valid_percent ?? null,
-    });
-    sources.push(
-      citation(
-        "modis-13Q1-061",
-        "MODIS vegetation indices (13Q1)",
-        "https://planetarycomputer.microsoft.com/dataset/modis-13Q1-061",
-        ndviMean == null ? "partial" : "ok",
-        ndviMean == null
-          ? "Scene intersected the polygon but NDVI was unusable."
-          : `Latest composite ${observedAt.slice(0, 10)} NDVI ${ndviMean.toFixed(2)}.`,
-      ),
-    );
-  } else {
-    sources.push(
-      citation(
-        "modis-13Q1-061",
-        "MODIS vegetation indices (13Q1)",
-        "https://planetarycomputer.microsoft.com/dataset/modis-13Q1-061",
-        "unavailable",
-        "No usable composite in the search window.",
-      ),
-    );
-  }
+  });
+
+  const results = await Promise.all(statsPromises);
+  const validScenes = results.filter((r): r is TimeSeriesPoint => r !== null);
+
+  timeseries.push(...validScenes);
+  ndviMean = validScenes[0]?.ndvi ?? null;
+  eviMean = validScenes[0]?.evi ?? null;
+
+  sources.push(
+    citation(
+      "modis-13Q1-061",
+      "MODIS vegetation indices (13Q1)",
+      "https://planetarycomputer.microsoft.com/dataset/modis-13Q1-061",
+      validScenes.length > 0 ? "ok" : "unavailable",
+      `Used ${validScenes.length} live scenes (first 4 searched in parallel).`,
+    ),
+  );
+  // === END MODIS UPDATE ===
+
+  // Original single-scene MODIS code has been replaced by the multi-scene version above.
+  // The vegetation chart will now show several live MODIS dates.
 
   const agb = hgbStats ? stat(hgbStats, "aboveground") : null;
   const agbUncertainty = hgbStats ? stat(hgbStats, "aboveground_uncertainty") : null;
