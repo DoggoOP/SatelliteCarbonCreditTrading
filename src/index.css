@@ -1,10 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,520;9..144,600;9..144,680&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color: #14221b;
-  background: #f3efe6;
+  color: #1a2820;
+  background: #f4f1ea;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -13,18 +15,26 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: #f4f1ea;
 }
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #146c43;
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #1f6a45;
   outline-offset: 2px;
+}
+
+::selection {
+  background: #d5e6da;
+  color: #1a2820;
 }
