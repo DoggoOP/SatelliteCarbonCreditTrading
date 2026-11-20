@@ -14,7 +14,7 @@ interface Props {
 export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }: Props) {
   if (busy && !result) {
     return (
-      <aside className="min-w-0 rounded-3xl border border-line bg-paper p-5 text-ink shadow-card">
+      <aside className="min-w-0 rounded-lg border border-line bg-paper p-5 text-ink shadow-card">
         <p className="text-[11px] uppercase tracking-[0.18em] text-canopy">Reading satellites</p>
         <p className="mt-2 break-words text-sm leading-6 text-muted">
           Reading live satellite scenes. This usually takes a few seconds.
@@ -28,7 +28,7 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
 
   if (!result) {
     return (
-      <aside className="min-w-0 rounded-3xl border border-dashed border-line bg-paper p-5 text-ink">
+      <aside className="min-w-0 rounded-lg border border-dashed border-line bg-paper p-5 text-ink">
         <h2 className="font-display text-lg font-semibold">No analysis yet</h2>
         <p className="mt-2 break-words text-sm leading-6 text-muted">
           Pick a forest and run it. Numbers on this page come from the API. The map does not invent them.
@@ -43,14 +43,14 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
   const stock = result.stock.carbonStockTco2e;
 
   return (
-    <aside className="min-w-0 rounded-3xl border border-line bg-paper text-ink shadow-card">
+    <aside className="min-w-0 rounded-lg border border-line bg-paper text-ink shadow-card">
       <div className="space-y-4 border-b border-line bg-canvas px-5 py-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <p className="min-w-0 flex-1 break-words text-[11px] uppercase tracking-[0.18em] text-muted">{result.name}</p>
           <Confidence score={result.uncertainty.score} band={result.uncertainty.band} />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-canopy">Listable tCO₂e per year</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-copper">Listable tCO₂e per year</p>
           <h2 className="mt-2 break-words font-display text-4xl font-semibold leading-none tracking-tight text-ink min-[480px]:text-5xl">
             {issuable == null ? "—" : formatTonnes(issuable)}
           </h2>
@@ -62,7 +62,7 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
       <div className="space-y-4 p-5">
         {busy ? <p className="text-[11px] uppercase tracking-[0.16em] text-canopy">Updating this stand</p> : null}
 
-        <div className="min-w-0 rounded-2xl border border-line px-4 py-3">
+        <div className="min-w-0 rounded-lg border border-line px-4 py-3">
           <p className="text-[11px] uppercase tracking-[0.14em] text-muted">Standing stock</p>
           <p className="mt-1 break-words text-xl font-semibold tabular-nums tracking-tight text-ink">
             {stock == null ? "—" : formatTonnes(stock)}
@@ -95,7 +95,7 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
         {result.warnings.length > 0 ? (
           <ul className="space-y-2">
             {result.warnings.map((warning) => (
-              <li key={warning} className="break-words rounded-2xl bg-copper/10 px-3 py-2 text-sm leading-5 text-copper">
+              <li key={warning} className="break-words rounded-lg bg-copper/10 px-3 py-2 text-sm leading-5 text-copper">
                 {warning}
               </li>
             ))}
@@ -106,7 +106,7 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
           <h3 className="font-display text-sm font-semibold text-ink">Sources</h3>
           <ul className="space-y-2">
             {result.sources.map((source) => (
-              <li key={source.id} className="min-w-0 rounded-2xl border border-line px-3 py-2">
+              <li key={source.id} className="min-w-0 rounded-lg border border-line px-3 py-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <span className="min-w-0 break-words font-medium text-ink">{source.name}</span>
                   <span
@@ -138,7 +138,7 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-line bg-canvas px-3 py-2">
+    <div className="min-w-0 rounded-lg border border-line bg-canvas px-3 py-2">
       <dt className="text-[11px] uppercase tracking-[0.14em] text-muted">{label}</dt>
       <dd className="mt-1 break-words font-medium tabular-nums text-ink">{value}</dd>
     </div>
@@ -172,14 +172,14 @@ function Confidence({ score, band }: { score: number; band: string }) {
 
 function NdviChart({ points }: { points: TimeSeriesPoint[] }) {
   return (
-    <div className="h-44 w-full min-w-0 text-canopy">
+    <div className="h-44 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#e2d9cc" />
+          <CartesianGrid vertical={false} stroke="#E4E1D8" />
           <XAxis
             dataKey="date"
             tickFormatter={formatAxisDate}
-            tick={{ fontSize: 11, fill: "#5c6b62" }}
+            tick={{ fontSize: 11, fill: "#6F6E69" }}
             tickMargin={8}
             axisLine={false}
             tickLine={false}
@@ -189,23 +189,23 @@ function NdviChart({ points }: { points: TimeSeriesPoint[] }) {
           <YAxis
             domain={[0, 1]}
             width={32}
-            tick={{ fontSize: 11, fill: "#5c6b62" }}
+            tick={{ fontSize: 11, fill: "#6F6E69" }}
             tickFormatter={(value) => Number(value).toFixed(1)}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
             contentStyle={{
-              background: "#fffcf7",
-              border: "1px solid #e2d9cc",
-              borderRadius: 12,
+              background: "#FAF9F5",
+              border: "1px solid #E4E1D8",
+              borderRadius: 8,
               fontSize: 12,
-              color: "#14221b",
+              color: "#141413",
             }}
             labelFormatter={(label) => formatTooltipDate(label)}
             formatter={(value) => [formatNdvi(value), "NDVI"]}
           />
-          <Line type="monotone" dataKey="ndvi" stroke="currentColor" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+          <Line type="monotone" dataKey="ndvi" stroke="#141413" strokeWidth={1.75} dot={false} activeDot={{ r: 4, fill: "#D97757" }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
