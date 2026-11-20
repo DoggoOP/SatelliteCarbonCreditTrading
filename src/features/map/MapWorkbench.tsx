@@ -40,12 +40,19 @@ export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null
     const container = containerRef.current;
     if (!container) return;
     const start = centroidOf(geometryRef.current);
-    const map = new maplibregl.Map({
-      container,
-      style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-      center: start,
-      zoom: 11,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container,
+        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        center: start,
+        zoom: 11,
+        fadeDuration: 0,
+      });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Map failed to start");
+      return;
+    }
     map.addControl(new maplibregl.NavigationControl(), "top-right");
     map.on("load", () => {
       map.addSource("aoi", {
@@ -105,7 +112,7 @@ export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded() || !map.getSource("aoi")) return;
+    if (!map?.getSource("aoi")) return;
     const source = map.getSource("aoi") as maplibregl.GeoJSONSource;
     source.setData({ type: "Feature", properties: {}, geometry });
     if (!drawingRef.current) fit(map, geometry);
@@ -154,6 +161,11 @@ export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null
     stopDraw();
     setUploadError(null);
     onChange({ name: preset.name, geometry: preset.geometry });
+    const map = mapRef.current;
+    const source = map?.getSource("aoi") as maplibregl.GeoJSONSource | undefined;
+    if (!map || !source) return;
+    source.setData({ type: "Feature", properties: {}, geometry: preset.geometry });
+    fit(map, preset.geometry);
   }
 
   function finishShape() {
@@ -179,6 +191,7 @@ export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null
     }
   }
 
+  const presetSelected = !drawing && PRESETS.some((preset) => preset.name === name);
   const draftPolygon: Polygon | null =
     draft.length >= 3 ? { type: "Polygon", coordinates: [[...draft, draft[0]]] } : null;
   const hectaresLabel = draftPolygon
@@ -189,35 +202,42 @@ export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null
 
   return (
     <section className="overflow-hidden rounded-3xl border border-line bg-paper shadow-card">
-      <div ref={containerRef} className="h-[340px] w-full md:h-[520px]" />
+      <div ref={containerRef} className="h-[420px] w-full" />
       <div className="space-y-3 border-t border-line p-4">
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => choosePreset(preset)}
-              className={`rounded-full border px-3 py-1 text-sm ${
-                name === preset.name && !drawing ? "border-ink bg-ink text-paper" : "border-line text-ink"
-              }`}
-            >
-              {preset.name}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm text-muted" htmlFor="forest-preset">
+            Forest
+          </label>
+          <select
+            id="forest-preset"
+            className="rounded-full border border-line bg-canvas px-3 py-2 text-sm"
+            value={presetSelected ? name : "custom"}
+            onChange={(event) => {
+              const preset = PRESETS.find((item) => item.name === event.target.value);
+              if (preset) choosePreset(preset);
+            }}
+          >
+            {presetSelected ? null : <option value="custom">{drawing ? "Custom draw" : name}</option>}
+            {PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.name}>
+                {preset.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={() => (drawing ? stopDraw() : startDraw())}
-            className={`rounded-full border px-3 py-1 text-sm ${drawing ? "border-copper bg-copper text-white" : "border-line text-ink"}`}
+            className="rounded-full border border-line px-3 py-2 text-sm"
           >
-            {drawing ? "Cancel draw" : "Draw boundary"}
+            {drawing ? "Cancel draw" : "Draw instead"}
           </button>
           {sentinelTileTemplate ? (
             <button
               type="button"
               onClick={() => setShowSatellite((value) => !value)}
-              className={`rounded-full border px-3 py-1 text-sm ${showSatellite ? "border-ink bg-ink text-paper" : "border-line text-ink"}`}
+              className="rounded-full border border-line px-3 py-2 text-sm"
             >
-              {showSatellite ? "Satellite on" : "Satellite off"}
+              {showSatellite ? "Hide satellite" : "Show satellite"}
             </button>
           ) : null}
         </div>
@@ -241,7 +261,7 @@ export function MapWorkbench({ name, geometry, busy, sentinelTileTemplate = null
                 </Button>
               </>
             ) : (
-              <Button onClick={onAnalyze} disabled={busy}>
+              <Button onClick={onAnalyze} disabled={busy} className="px-5 py-2.5">
                 {busy ? "Reading satellites…" : "Analyze with satellites"}
               </Button>
             )}

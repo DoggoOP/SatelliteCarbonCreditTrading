@@ -4,7 +4,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   tone?: "primary" | "ghost";
 };
 
-export function Button({ tone = "primary", className = "", ...props }: Props) {
+export function Button({ tone = "primary", className = "", type = "button", ...props }: Props) {
   const toneClass =
     tone === "primary"
       ? "bg-copper text-paper hover:brightness-95 disabled:bg-muted disabled:text-paper"
@@ -12,6 +12,7 @@ export function Button({ tone = "primary", className = "", ...props }: Props) {
   return (
     <button
       className={`inline-flex max-w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${toneClass} ${className}`}
+      type={type}
       {...props}
     />
   );

@@ -258,11 +258,18 @@ export async function analyzeArea(request: AnalysisRequest): Promise<AnalysisRes
           `${annualTco2e.toFixed(0)} tCO2e/year before buffer. Pixel values are totals, not per-hectare rates.`,
         ),
       );
+      const tonnesPerHectare = annualTco2e / areaHa;
       if (areaHa < chlorisPixelHectares()) {
-        warnings.push("This polygon is smaller than one Chloris pixel, so the sequestration rate is a scaled sample and confidence is capped.");
+        warnings.push("The growth map is one pixel about 5 km wide, so this box is only a sample of it.");
       }
-      if (annualTco2e < 0) {
-        warnings.push("The latest Chloris year shows a carbon loss. Removal credits are not listed for a loss.");
+      if (annualTco2e < 0 && Math.abs(tonnesPerHectare) < 0.25) {
+        warnings.push(
+          `No clear gain or loss (about ${annualTco2e.toFixed(0)} tCO₂e/year). A credit needs a measured gain, so nothing is listed. Humboldt redwoods is gaining.`,
+        );
+      } else if (annualTco2e < 0) {
+        warnings.push(
+          `This area lost about ${Math.abs(annualTco2e).toFixed(0)} tCO₂e in the last measured year. A credit pays for carbon removed, so a loss cannot be sold.`,
+        );
       }
     }
   }
@@ -349,7 +356,7 @@ export async function analyzeArea(request: AnalysisRequest): Promise<AnalysisRes
     drivers.push("Vegetation time series is still a single composite. Trend is not yet estimated.");
   }
   score = Math.max(0, Math.min(100, score));
-  const confidenceBand = bandFor(score, aboveGroundBiomassMgHa != null && annualTco2e != null && annualTco2e > 0);
+  const confidenceBand = bandFor(score, aboveGroundBiomassMgHa != null);
   const annualIssuable = annualTco2e == null ? null : bufferedIssuance(annualTco2e);
 
   return {

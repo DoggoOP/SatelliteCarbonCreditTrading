@@ -50,11 +50,17 @@ export function ResultsPanel({ result, busy, error, onList, listBusy, listNote }
           <Confidence score={result.uncertainty.score} band={result.uncertainty.band} />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-copper">Listable tCO₂e per year</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-copper">
+            {issuable != null && issuable > 0 ? "Listable this year" : "Not a credit yet"}
+          </p>
           <h2 className="mt-2 break-words font-display text-4xl font-semibold leading-none tracking-tight text-ink min-[480px]:text-5xl">
-            {issuable == null ? "—" : formatTonnes(issuable)}
+            {issuable != null && issuable > 0 ? formatTonnes(issuable) : "No sale"}
           </h2>
-          <p className="mt-2 text-sm text-muted">tCO₂e / year, after the non-permanence buffer</p>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            {issuable != null && issuable > 0
+              ? "Tonnes of new growth a buyer could purchase, after holding 20% back."
+              : "The trees are still there. A credit is only for carbon the forest added. This box did not show a clear gain."}
+          </p>
         </div>
         <p className="break-words text-xs leading-5 text-muted">{result.credits.disclaimer}</p>
       </div>
