@@ -53,6 +53,7 @@ export function AnalyzePage() {
         name={name}
         geometry={geometry}
         busy={busy}
+        sentinelTileTemplate={result?.map.sentinelTileTemplate}
         onChange={(next) => {
           setName(next.name);
           setGeometry(next.geometry);
